@@ -1,0 +1,24 @@
+# Packaging configuration (electron-builder).
+# To rebrand the produced app, change `productName` and `appId` here and the
+# `name` in package.json + src/renderer/src/branding.ts.
+appId: com.selfhostedgitclient.app
+productName: Self-hosted Git Client
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
