@@ -50,8 +50,8 @@ export function ChangesPanel(): React.JSX.Element {
 
   return (
     <div className="h-full flex flex-col">
-      {/* file lists */}
-      <div className="shrink-0 max-h-[42%] overflow-auto border-b border-app-border">
+      {/* Unstaged — dedicated container */}
+      <div className="shrink-0 flex flex-col border-b-2 border-app-border">
         <ListHeader
           title={`Unstaged (${status.unstaged.length})`}
           action={
@@ -65,34 +65,39 @@ export function ChangesPanel(): React.JSX.Element {
             ) : null
           }
         />
-        {status.unstaged.map((f) => (
-          <ChangeRow
-            key={`u-${f.path}`}
-            file={f}
-            active={!!workingFile && !workingFile.staged && workingFile.path === f.path}
-            innerRef={
-              !!workingFile && !workingFile.staged && workingFile.path === f.path
-                ? setSelRef
-                : undefined
-            }
-            onClick={() => {
-              setFocusZone('files')
-              selectWorkingFile(f)
-            }}
-            actions={
-              <>
-                <RowAction title="Discard changes" onClick={() => setConfirmDiscard(f)}>
-                  <Undo2 size={13} />
-                </RowAction>
-                <RowAction title="Stage" onClick={() => stage([f.path])}>
-                  <Plus size={14} />
-                </RowAction>
-              </>
-            }
-          />
-        ))}
-        {status.unstaged.length === 0 && <Empty>Nothing to stage</Empty>}
+        <div className="overflow-auto max-h-[180px] min-h-[36px]">
+          {status.unstaged.map((f) => (
+            <ChangeRow
+              key={`u-${f.path}`}
+              file={f}
+              active={!!workingFile && !workingFile.staged && workingFile.path === f.path}
+              innerRef={
+                !!workingFile && !workingFile.staged && workingFile.path === f.path
+                  ? setSelRef
+                  : undefined
+              }
+              onClick={() => {
+                setFocusZone('files')
+                selectWorkingFile(f)
+              }}
+              actions={
+                <>
+                  <RowAction title="Discard changes" onClick={() => setConfirmDiscard(f)}>
+                    <Undo2 size={13} />
+                  </RowAction>
+                  <RowAction title="Stage" onClick={() => stage([f.path])}>
+                    <Plus size={14} />
+                  </RowAction>
+                </>
+              }
+            />
+          ))}
+          {status.unstaged.length === 0 && <Empty>Nothing to stage</Empty>}
+        </div>
+      </div>
 
+      {/* Staged — dedicated container */}
+      <div className="shrink-0 flex flex-col border-b border-app-border">
         <ListHeader
           title={`Staged (${status.staged.length})`}
           action={
@@ -106,28 +111,30 @@ export function ChangesPanel(): React.JSX.Element {
             ) : null
           }
         />
-        {status.staged.map((f) => (
-          <ChangeRow
-            key={`s-${f.path}`}
-            file={f}
-            active={!!workingFile && workingFile.staged && workingFile.path === f.path}
-            innerRef={
-              !!workingFile && workingFile.staged && workingFile.path === f.path
-                ? setSelRef
-                : undefined
-            }
-            onClick={() => {
-              setFocusZone('files')
-              selectWorkingFile(f)
-            }}
-            actions={
-              <RowAction title="Unstage" onClick={() => unstage([f.path])}>
-                <Minus size={14} />
-              </RowAction>
-            }
-          />
-        ))}
-        {status.staged.length === 0 && <Empty>No staged files</Empty>}
+        <div className="overflow-auto max-h-[180px] min-h-[36px]">
+          {status.staged.map((f) => (
+            <ChangeRow
+              key={`s-${f.path}`}
+              file={f}
+              active={!!workingFile && workingFile.staged && workingFile.path === f.path}
+              innerRef={
+                !!workingFile && workingFile.staged && workingFile.path === f.path
+                  ? setSelRef
+                  : undefined
+              }
+              onClick={() => {
+                setFocusZone('files')
+                selectWorkingFile(f)
+              }}
+              actions={
+                <RowAction title="Unstage" onClick={() => unstage([f.path])}>
+                  <Minus size={14} />
+                </RowAction>
+              }
+            />
+          ))}
+          {status.staged.length === 0 && <Empty>No staged files</Empty>}
+        </div>
       </div>
 
       {/* diff */}
