@@ -1,5 +1,14 @@
 import React, { useState } from 'react'
-import { ArrowDown, ArrowUp, RefreshCw, GitBranch, Archive, GitMerge, PanelLeft } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  RefreshCw,
+  GitBranch,
+  Archive,
+  ArchiveRestore,
+  GitMerge,
+  PanelLeft
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Button, IconButton } from './ui'
 import { PromptModal } from './PromptModal'
@@ -13,16 +22,22 @@ export function Toolbar(): React.JSX.Element {
   const push = useStore((s) => s.push)
   const createBranch = useStore((s) => s.createBranch)
   const stashSave = useStore((s) => s.stashSave)
+  const stashPop = useStore((s) => s.stashPop)
+  const stashes = useStore((s) => s.stashes)
+  const selection = useStore((s) => s.selection)
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
 
   const [branchModal, setBranchModal] = useState(false)
-  const [stashModal, setStashModal] = useState(false)
 
   const ahead = status?.ahead ?? 0
   const behind = status?.behind ?? 0
   const hasUpstream = !!status?.tracking
   const dirty = status && !status.isClean
+
+  // Pop is enabled only when the currently selected commit is a stash (WIP).
+  const selectedStash =
+    selection?.type === 'commit' ? stashes.find((s) => s.hash === selection.hash) ?? null : null
 
   const doPush = (): void => {
     if (hasUpstream) push({})
@@ -64,11 +79,19 @@ export function Toolbar(): React.JSX.Element {
       </Button>
       <Button
         variant="ghost"
-        onClick={() => setStashModal(true)}
+        onClick={() => stashSave('WIP')}
         disabled={busy || !dirty}
-        title="Stash your changes"
+        title="Stash your changes as a WIP"
       >
         <Archive size={15} /> Stash
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => selectedStash && stashPop(selectedStash.index)}
+        disabled={busy || !selectedStash}
+        title={selectedStash ? 'Apply and drop the selected stash' : 'Select a stash (WIP) to pop'}
+      >
+        <ArchiveRestore size={15} /> Pop
       </Button>
 
       <div className="flex-1" />
@@ -95,16 +118,6 @@ export function Toolbar(): React.JSX.Element {
           confirmText="Create and checkout"
           onConfirm={(name) => createBranch(name, true)}
           onClose={() => setBranchModal(false)}
-        />
-      )}
-      {stashModal && (
-        <PromptModal
-          title="Create stash"
-          label="Message (optional)"
-          placeholder="work in progress"
-          confirmText="Save stash"
-          onConfirm={(msg) => stashSave(msg)}
-          onClose={() => setStashModal(false)}
         />
       )}
     </div>

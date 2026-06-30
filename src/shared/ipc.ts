@@ -52,6 +52,7 @@ export const Channels = {
   stashApply: 'git:stashApply',
   stashPop: 'git:stashPop',
   stashDrop: 'git:stashDrop',
+  stashRename: 'git:stashRename',
 
   addRemote: 'git:addRemote',
   removeRemote: 'git:removeRemote',

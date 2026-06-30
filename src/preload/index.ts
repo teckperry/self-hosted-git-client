@@ -83,6 +83,8 @@ const api = {
   stashApply: (path: string, index: number) => invoke<void>(Channels.stashApply, path, index),
   stashPop: (path: string, index: number) => invoke<void>(Channels.stashPop, path, index),
   stashDrop: (path: string, index: number) => invoke<void>(Channels.stashDrop, path, index),
+  stashRename: (path: string, index: number, message: string) =>
+    invoke<void>(Channels.stashRename, path, index, message),
 
   addRemote: (path: string, name: string, url: string) =>
     invoke<void>(Channels.addRemote, path, name, url),

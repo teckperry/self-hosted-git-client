@@ -112,6 +112,7 @@ interface AppState {
   stashApply: (index: number) => Promise<void>
   stashPop: (index: number) => Promise<void>
   stashDrop: (index: number) => Promise<void>
+  stashRename: (index: number, message: string) => Promise<void>
   addRemote: (name: string, url: string) => Promise<void>
   removeRemote: (name: string) => Promise<void>
 }
@@ -570,6 +571,12 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run('Popping stash…', () => call(api.stashPop(get().repo!.path, index)), 'Stash applied'),
   stashDrop: (index) =>
     get().run('Dropping stash…', () => call(api.stashDrop(get().repo!.path, index)), 'Stash dropped'),
+  stashRename: (index, message) =>
+    get().run(
+      'Renaming stash…',
+      () => call(api.stashRename(get().repo!.path, index, message)),
+      'Stash renamed'
+    ),
   addRemote: (name, url) =>
     get().run('Adding remote…', () => call(api.addRemote(get().repo!.path, name, url)), 'Remote added'),
   removeRemote: (name) =>

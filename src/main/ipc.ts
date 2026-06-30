@@ -126,6 +126,9 @@ export function registerIpcHandlers(): void {
   handle(Channels.stashApply, (path: string, index: number) => gitService.stashApply(path, index))
   handle(Channels.stashPop, (path: string, index: number) => gitService.stashPop(path, index))
   handle(Channels.stashDrop, (path: string, index: number) => gitService.stashDrop(path, index))
+  handle(Channels.stashRename, (path: string, index: number, message: string) =>
+    gitService.stashRename(path, index, message)
+  )
 
   handle(Channels.addRemote, (path: string, name: string, url: string) =>
     gitService.addRemote(path, name, url)

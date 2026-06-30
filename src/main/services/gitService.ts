@@ -45,6 +45,8 @@ function parseRefs(raw: string): CommitRef[] {
       refs.push({ name: 'HEAD', type: 'HEAD' })
     } else if (token.startsWith('tag: ')) {
       refs.push({ name: token.slice(5), type: 'tag' })
+    } else if (token === 'refs/stash' || token === 'stash') {
+      refs.push({ name: 'stash', type: 'stash' })
     } else if (token.includes('/')) {
       refs.push({ name: token, type: 'remote' })
     } else {
@@ -114,11 +116,25 @@ export const gitService = {
   async getCommits(repoPath: string, limit = 500): Promise<Commit[]> {
     const format =
       ['%H', '%h', '%P', '%an', '%ae', '%aI', '%s', '%b', '%D'].join(FIELD) + RECORD
+
+    // `git log --all` only reaches the most recent stash (refs/stash); older
+    // stashes live in the stash reflog, which --all does not traverse. Pass every
+    // stash commit hash explicitly so all of them appear in the graph.
+    let stashShas: string[] = []
+    try {
+      const raw = await git(repoPath).raw(['stash', 'list', '--format=%H'])
+      stashShas = raw.split('\n').map((s) => s.trim()).filter(Boolean)
+    } catch {
+      stashShas = []
+    }
+    const stashSet = new Set(stashShas)
+
     let out: string
     try {
       out = await git(repoPath).raw([
         'log',
         '--all',
+        ...stashShas,
         '--date-order',
         `--pretty=format:${format}`,
         '-n',
@@ -132,6 +148,11 @@ export const gitService = {
       const r = record.replace(/^\n/, '')
       if (!r.trim()) continue
       const f = r.split(FIELD)
+      const refs = parseRefs(f[8] || '')
+      // Only the top stash carries the refs/stash decoration; tag the rest too.
+      if (stashSet.has(f[0]) && !refs.some((ref) => ref.type === 'stash')) {
+        refs.push({ name: 'stash', type: 'stash' })
+      }
       commits.push({
         hash: f[0],
         shortHash: f[1],
@@ -141,7 +162,7 @@ export const gitService = {
         date: f[5],
         subject: f[6],
         body: (f[7] || '').trim(),
-        refs: parseRefs(f[8] || ''),
+        refs,
         pushed: false
       })
     }
@@ -158,7 +179,21 @@ export const gitService = {
     } catch {
       // no remotes / no remote refs — everything stays unpushed
     }
+
+    // Each stash commit carries two internal helper parents created by
+    // `git stash`: "index on …" and "untracked files on …". Hide those and keep
+    // only the WIP entry, trimming the stash commit down to its base parent so
+    // the graph draws a single clean edge into real history.
+    if (stashSet.size === 0) return commits
+    const stashHelpers = new Set<string>()
+    for (const c of commits) {
+      if (stashSet.has(c.hash)) {
+        for (const p of c.parents.slice(1)) stashHelpers.add(p)
+      }
+    }
     return commits
+      .filter((c) => !stashHelpers.has(c.hash))
+      .map((c) => (stashSet.has(c.hash) ? { ...c, parents: c.parents.slice(0, 1) } : c))
   },
 
   async getStatus(repoPath: string): Promise<RepoStatus> {
@@ -480,6 +515,28 @@ export const gitService = {
 
   async stashDrop(repoPath: string, index: number): Promise<void> {
     await git(repoPath).raw(['stash', 'drop', `stash@{${index}}`])
+  },
+
+  /**
+   * Rename a stash's message. Git has no in-place rename, so we recreate the
+   * stash commit with a new subject (preserving its tree and all parents, hence
+   * apply/pop keep working), store it, then drop the original. The renamed entry
+   * moves to the top of the stack (stash@{0}).
+   */
+  async stashRename(repoPath: string, index: number, message: string): Promise<void> {
+    const g = git(repoPath)
+    const ref = `stash@{${index}}`
+    const sha = (await g.raw(['rev-parse', ref])).trim()
+    const tree = (await g.raw(['rev-parse', `${ref}^{tree}`])).trim()
+    const revList = (await g.raw(['rev-list', '--parents', '-n', '1', sha])).trim()
+    const parents = revList.split(/\s+/).slice(1) // drop the commit's own hash
+    const args = ['commit-tree', tree]
+    for (const p of parents) args.push('-p', p)
+    args.push('-m', message)
+    const newSha = (await g.raw(args)).trim()
+    await g.raw(['stash', 'store', '-m', message, newSha])
+    // `stash store` prepended the new entry, shifting the original down by one.
+    await g.raw(['stash', 'drop', `stash@{${index + 1}}`])
   },
 
   async addRemote(repoPath: string, name: string, url: string): Promise<void> {

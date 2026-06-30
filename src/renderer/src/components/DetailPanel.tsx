@@ -57,7 +57,7 @@ export function DetailPanel(): React.JSX.Element {
               <span className="selectable">{`<${commit.authorEmail}>`}</span> · {fullDate(commit.date)}
             </div>
           </div>
-          {!commit.pushed && (
+          {!commit.pushed && !commit.refs.some((r) => r.type === 'stash') && (
             <span
               title="Not pushed to any remote"
               className="flex items-center gap-1 px-1.5 h-[18px] rounded bg-app-warning/20 text-app-warning text-[10px] font-medium shrink-0 mt-0.5"

@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { FileEdit, CloudOff } from 'lucide-react'
+import { FileEdit, CloudOff, Archive } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { computeGraph, type GraphRow } from '../lib/graph'
 import { relativeTime, initials, colorFromString } from '../lib/format'
 import { ContextMenu, useContextMenu, type MenuItem } from './ui'
 import { ConfirmModal, PromptModal } from './PromptModal'
-import type { Commit, CommitRef } from '@shared/types'
+import type { Commit, CommitRef, Stash } from '@shared/types'
 
 const ROW_H = 48
 const LANE_W = 16
@@ -17,6 +17,7 @@ const x = (col: number): number => PAD + col * LANE_W + LANE_W / 2
 export function CommitGraph(): React.JSX.Element {
   const commits = useStore((s) => s.commits)
   const status = useStore((s) => s.status)
+  const stashes = useStore((s) => s.stashes)
   const selection = useStore((s) => s.selection)
   const selectCommit = useStore((s) => s.selectCommit)
   const selectWip = useStore((s) => s.selectWip)
@@ -85,6 +86,7 @@ export function CommitGraph(): React.JSX.Element {
         {layout.rows.map((row) => {
           const commit = byHash.get(row.hash)!
           const selected = selection?.type === 'commit' && selection.hash === row.hash
+          const stash = stashes.find((s) => s.hash === row.hash)
           return (
             <CommitRow
               key={row.hash}
@@ -97,7 +99,9 @@ export function CommitGraph(): React.JSX.Element {
                 setFocusZone('commits')
                 selectCommit(row.hash)
               }}
-              onMenu={(e) => cm.open(e, buildMenu(commit, setModal))}
+              onMenu={(e) =>
+                cm.open(e, stash ? buildStashMenu(stash, setModal) : buildMenu(commit, setModal))
+              }
             />
           )
         })}
@@ -131,13 +135,18 @@ function CommitRow({
   onClick: () => void
   onMenu: (e: React.MouseEvent) => void
 }): React.JSX.Element {
+  const isStash = commit.refs.some((r) => r.type === 'stash')
   return (
     <div
       ref={innerRef}
       onClick={onClick}
       onContextMenu={onMenu}
       className={`flex items-center h-12 border-b border-app-border/50 cursor-pointer ${
-        selected ? 'bg-app-accent/15' : 'hover:bg-app-hover'
+        selected
+          ? 'bg-app-accent/15'
+          : isStash
+            ? 'bg-app-warning/[0.07] hover:bg-app-hover'
+            : 'hover:bg-app-hover'
       }`}
     >
       <svg width={graphWidth} height={ROW_H} className="shrink-0" style={{ display: 'block' }}>
@@ -170,19 +179,33 @@ function CommitRow({
             strokeWidth={2}
           />
         ))}
-        {/* filled node = pushed, hollow node = local-only (not pushed) */}
-        <circle
-          cx={x(row.col)}
-          cy={ROW_H / 2}
-          r={R}
-          fill={commit.pushed ? row.color : 'rgb(var(--app-bg))'}
-          stroke={commit.pushed ? 'rgb(var(--app-bg))' : row.color}
-          strokeWidth={2}
-        />
+        {isStash ? (
+          /* stash = amber rounded square, instantly distinct from round commits */
+          <rect
+            x={x(row.col) - R - 1}
+            y={ROW_H / 2 - R - 1}
+            width={(R + 1) * 2}
+            height={(R + 1) * 2}
+            rx={2}
+            fill="rgb(var(--app-warning))"
+            stroke="rgb(var(--app-bg))"
+            strokeWidth={2}
+          />
+        ) : (
+          /* filled node = pushed, hollow node = local-only (not pushed) */
+          <circle
+            cx={x(row.col)}
+            cy={ROW_H / 2}
+            r={R}
+            fill={commit.pushed ? row.color : 'rgb(var(--app-bg))'}
+            stroke={commit.pushed ? 'rgb(var(--app-bg))' : row.color}
+            strokeWidth={2}
+          />
+        )}
       </svg>
 
       <div className="flex-1 min-w-0 flex items-center gap-1.5 pr-2">
-        {!commit.pushed && (
+        {!commit.pushed && !commit.refs.some((r) => r.type === 'stash') && (
           <span
             title="Not pushed to any remote"
             className="flex items-center gap-1 px-1.5 h-[18px] rounded bg-app-warning/20 text-app-warning text-[10px] font-medium shrink-0"
@@ -224,11 +247,17 @@ function RefBadge({ refObj }: { refObj: CommitRef }): React.JSX.Element | null {
       </span>
     )
   }
+  if (refObj.type === 'stash') {
+    return (
+      <span className="px-1.5 h-[18px] inline-flex items-center gap-1 rounded bg-app-warning text-app-bg text-[10px] font-bold shrink-0 uppercase tracking-wide">
+        <Archive size={11} /> Stash
+      </span>
+    )
+  }
   const styles: Record<string, string> = {
     head: 'bg-app-accent/20 text-app-accent border border-app-accent/40',
     remote: 'bg-app-panel-2 text-app-muted border border-app-border',
-    tag: 'bg-app-warning/20 text-app-warning border border-app-warning/40',
-    stash: 'bg-app-panel-2 text-app-muted border border-app-border'
+    tag: 'bg-app-warning/20 text-app-warning border border-app-warning/40'
   }
   return (
     <span
@@ -240,6 +269,46 @@ function RefBadge({ refObj }: { refObj: CommitRef }): React.JSX.Element | null {
       {refObj.name}
     </span>
   )
+}
+
+function buildStashMenu(stash: Stash, setModal: (n: React.ReactNode) => void): MenuItem[] {
+  const store = useStore.getState
+  const close = (): void => setModal(null)
+  return [
+    { label: 'Apply (keep stash)', onClick: () => store().stashApply(stash.index) },
+    { label: 'Apply and drop (pop)', onClick: () => store().stashPop(stash.index) },
+    { label: '', separator: true, onClick: () => {} },
+    {
+      label: 'Edit message…',
+      onClick: () =>
+        setModal(
+          <PromptModal
+            title="Edit stash message"
+            label="New message for this stash"
+            initialValue={stash.message}
+            confirmText="Save"
+            onConfirm={(msg) => store().stashRename(stash.index, msg)}
+            onClose={close}
+          />
+        )
+    },
+    { label: '', separator: true, onClick: () => {} },
+    {
+      label: 'Drop stash',
+      danger: true,
+      onClick: () =>
+        setModal(
+          <ConfirmModal
+            title="Drop stash"
+            message={`Drop stash@{${stash.index}}?`}
+            danger
+            confirmText="Drop"
+            onConfirm={() => store().stashDrop(stash.index)}
+            onClose={close}
+          />
+        )
+    }
+  ]
 }
 
 function buildMenu(commit: Commit, setModal: (n: React.ReactNode) => void): MenuItem[] {

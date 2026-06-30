@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ContextMenu, useContextMenu, IconButton, type MenuItem } from './ui'
-import { ConfirmModal } from './PromptModal'
+import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Branch } from '@shared/types'
 
 export function Sidebar(): React.JSX.Element {
@@ -32,6 +32,7 @@ export function Sidebar(): React.JSX.Element {
 
   const cm = useContextMenu()
   const [confirm, setConfirm] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
+  const [rename, setRename] = useState<{ index: number; message: string } | null>(null)
 
   return (
     <aside className="w-60 shrink-0 bg-app-panel border-r border-app-border flex flex-col overflow-y-auto select-none">
@@ -93,7 +94,14 @@ export function Sidebar(): React.JSX.Element {
 
       <Section title="Stashes" icon={<Archive size={13} />} count={stashes.length}>
         {stashes.map((s) => (
-          <StashRow key={s.index} index={s.index} message={s.message} onMenu={cm.open} setConfirm={setConfirm} />
+          <StashRow
+            key={s.index}
+            index={s.index}
+            message={s.message}
+            onMenu={cm.open}
+            setConfirm={setConfirm}
+            setRename={setRename}
+          />
         ))}
         {stashes.length === 0 && <Empty>No stashes</Empty>}
       </Section>
@@ -107,6 +115,16 @@ export function Sidebar(): React.JSX.Element {
           confirmText="Delete"
           onConfirm={confirm.onConfirm}
           onClose={() => setConfirm(null)}
+        />
+      )}
+      {rename && (
+        <PromptModal
+          title="Edit stash message"
+          label="New message for this stash"
+          initialValue={rename.message}
+          confirmText="Save"
+          onConfirm={(msg) => useStore.getState().stashRename(rename.index, msg)}
+          onClose={() => setRename(null)}
         />
       )}
     </aside>
@@ -177,17 +195,21 @@ function StashRow({
   index,
   message,
   onMenu,
-  setConfirm
+  setConfirm,
+  setRename
 }: {
   index: number
   message: string
   onMenu: (e: React.MouseEvent, items: MenuItem[]) => void
   setConfirm: (c: { title: string; message: string; onConfirm: () => void }) => void
+  setRename: (r: { index: number; message: string }) => void
 }): React.JSX.Element {
   const store = useStore.getState
   const items: MenuItem[] = [
     { label: 'Apply (keep stash)', onClick: () => store().stashApply(index) },
     { label: 'Apply and drop (pop)', onClick: () => store().stashPop(index) },
+    { label: '', separator: true, onClick: () => {} },
+    { label: 'Edit message…', onClick: () => setRename({ index, message }) },
     { label: '', separator: true, onClick: () => {} },
     {
       label: 'Drop stash',
