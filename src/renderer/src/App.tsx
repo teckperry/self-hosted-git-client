@@ -21,11 +21,47 @@ export default function App(): React.JSX.Element {
   const [sshOpen, setSshOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(560)
   const dragging = useRef(false)
+  const sshOpenRef = useRef(sshOpen)
+  sshOpenRef.current = sshOpen
 
   useEffect(() => {
     loadRecent()
     restoreSession()
   }, [loadRecent, restoreSession])
+
+  // Global arrow-key navigation: ↑/↓ move within the focused list,
+  // ←/→ switch focus between the commit list and the file list.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (sshOpenRef.current) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      const s = useStore.getState()
+      if (!s.repo) return
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          if (s.focusZone === 'commits') s.navigateCommits(1)
+          else s.navigateFiles(1)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (s.focusZone === 'commits') s.navigateCommits(-1)
+          else s.navigateFiles(-1)
+          break
+        case 'ArrowLeft':
+          e.preventDefault()
+          s.setFocusZone('commits')
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          s.setFocusZone('files')
+          break
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const onMouseDown = useCallback(() => {
     dragging.current = true

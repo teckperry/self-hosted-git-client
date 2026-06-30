@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useEffect, useCallback } from 'react'
 import { GitCommit, Copy } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { fullDate, initials, colorFromString } from '../lib/format'
@@ -13,6 +13,15 @@ export function DetailPanel(): React.JSX.Element {
   const selectedFilePath = useStore((s) => s.selectedFilePath)
   const selectCommitFile = useStore((s) => s.selectCommitFile)
   const loadingDiff = useStore((s) => s.loadingDiff)
+  const setFocusZone = useStore((s) => s.setFocusZone)
+
+  const selectedRef = useRef<HTMLElement | null>(null)
+  const setSelRef = useCallback((el: HTMLElement | null) => {
+    selectedRef.current = el
+  }, [])
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selectedFilePath])
 
   const commit = useMemo(
     () => (selection?.type === 'commit' ? commits.find((c) => c.hash === selection.hash) : undefined),
@@ -73,7 +82,11 @@ export function DetailPanel(): React.JSX.Element {
             key={f.newPath || f.oldPath}
             file={f}
             active={f === activeFile}
-            onClick={() => selectCommitFile(f.newPath || f.oldPath)}
+            innerRef={f === activeFile ? setSelRef : undefined}
+            onClick={() => {
+              setFocusZone('files')
+              selectCommitFile(f.newPath || f.oldPath)
+            }}
           />
         ))}
         {commitDiff.length === 0 && !loadingDiff && (
@@ -92,14 +105,17 @@ export function DetailPanel(): React.JSX.Element {
 function FileRow({
   file,
   active,
+  innerRef,
   onClick
 }: {
   file: DiffFile
   active: boolean
+  innerRef?: (el: HTMLButtonElement | null) => void
   onClick: () => void
 }): React.JSX.Element {
   return (
     <button
+      ref={innerRef}
       onClick={onClick}
       className={`flex items-center gap-2 w-full px-3 py-1 text-left text-[12px] ${
         active ? 'bg-app-accent/15' : 'hover:bg-app-hover'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Plus, Minus, Undo2, Check, FileEdit } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { DiffViewer } from './DiffViewer'
@@ -20,10 +20,19 @@ export function ChangesPanel(): React.JSX.Element {
   const discard = useStore((s) => s.discard)
   const commit = useStore((s) => s.commit)
   const busy = useStore((s) => s.busy)
+  const setFocusZone = useStore((s) => s.setFocusZone)
 
   const [message, setMessage] = useState('')
   const [amend, setAmend] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState<FileChange | null>(null)
+
+  const selectedRef = useRef<HTMLElement | null>(null)
+  const setSelRef = useCallback((el: HTMLElement | null) => {
+    selectedRef.current = el
+  }, [])
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [workingFile])
 
   if (!status) return <div className="h-full" />
 
@@ -61,7 +70,15 @@ export function ChangesPanel(): React.JSX.Element {
             key={`u-${f.path}`}
             file={f}
             active={!!workingFile && !workingFile.staged && workingFile.path === f.path}
-            onClick={() => selectWorkingFile(f)}
+            innerRef={
+              !!workingFile && !workingFile.staged && workingFile.path === f.path
+                ? setSelRef
+                : undefined
+            }
+            onClick={() => {
+              setFocusZone('files')
+              selectWorkingFile(f)
+            }}
             actions={
               <>
                 <RowAction title="Discard changes" onClick={() => setConfirmDiscard(f)}>
@@ -94,7 +111,15 @@ export function ChangesPanel(): React.JSX.Element {
             key={`s-${f.path}`}
             file={f}
             active={!!workingFile && workingFile.staged && workingFile.path === f.path}
-            onClick={() => selectWorkingFile(f)}
+            innerRef={
+              !!workingFile && workingFile.staged && workingFile.path === f.path
+                ? setSelRef
+                : undefined
+            }
+            onClick={() => {
+              setFocusZone('files')
+              selectWorkingFile(f)
+            }}
             actions={
               <RowAction title="Unstage" onClick={() => unstage([f.path])}>
                 <Minus size={14} />
@@ -157,16 +182,19 @@ export function ChangesPanel(): React.JSX.Element {
 function ChangeRow({
   file,
   active,
+  innerRef,
   onClick,
   actions
 }: {
   file: FileChange
   active: boolean
+  innerRef?: (el: HTMLDivElement | null) => void
   onClick: () => void
   actions: React.ReactNode
 }): React.JSX.Element {
   return (
     <div
+      ref={innerRef}
       onClick={onClick}
       className={`group flex items-center gap-2 px-3 py-1 text-[12px] cursor-pointer ${
         active ? 'bg-app-accent/15' : 'hover:bg-app-hover'

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { FileEdit } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { computeGraph, type GraphRow } from '../lib/graph'
@@ -20,6 +20,7 @@ export function CommitGraph(): React.JSX.Element {
   const selection = useStore((s) => s.selection)
   const selectCommit = useStore((s) => s.selectCommit)
   const selectWip = useStore((s) => s.selectWip)
+  const setFocusZone = useStore((s) => s.setFocusZone)
 
   const layout = useMemo(() => computeGraph(commits), [commits])
   const graphWidth = layout.width * LANE_W + PAD * 2
@@ -31,6 +32,14 @@ export function CommitGraph(): React.JSX.Element {
 
   const cm = useContextMenu()
   const [modal, setModal] = useState<React.ReactNode>(null)
+
+  const selectedRef = useRef<HTMLElement | null>(null)
+  const setSelRef = useCallback((el: HTMLElement | null) => {
+    selectedRef.current = el
+  }, [])
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selection])
 
   const dirty = status && !status.isClean
   const changeCount = status ? status.staged.length + status.unstaged.length : 0
@@ -48,7 +57,11 @@ export function CommitGraph(): React.JSX.Element {
 
       {dirty && (
         <button
-          onClick={selectWip}
+          ref={selection?.type === 'wip' ? setSelRef : undefined}
+          onClick={() => {
+            setFocusZone('commits')
+            selectWip()
+          }}
           className={`flex items-center w-full h-10 px-3 border-b border-app-border text-left ${
             selection?.type === 'wip' ? 'bg-app-accent/15' : 'hover:bg-app-hover'
           }`}
@@ -71,14 +84,19 @@ export function CommitGraph(): React.JSX.Element {
       <div>
         {layout.rows.map((row) => {
           const commit = byHash.get(row.hash)!
+          const selected = selection?.type === 'commit' && selection.hash === row.hash
           return (
             <CommitRow
               key={row.hash}
               row={row}
               commit={commit}
               graphWidth={graphWidth}
-              selected={selection?.type === 'commit' && selection.hash === row.hash}
-              onClick={() => selectCommit(row.hash)}
+              selected={selected}
+              innerRef={selected ? setSelRef : undefined}
+              onClick={() => {
+                setFocusZone('commits')
+                selectCommit(row.hash)
+              }}
               onMenu={(e) => cm.open(e, buildMenu(commit, setModal))}
             />
           )
@@ -101,6 +119,7 @@ function CommitRow({
   commit,
   graphWidth,
   selected,
+  innerRef,
   onClick,
   onMenu
 }: {
@@ -108,11 +127,13 @@ function CommitRow({
   commit: Commit
   graphWidth: number
   selected: boolean
+  innerRef?: (el: HTMLDivElement | null) => void
   onClick: () => void
   onMenu: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   return (
     <div
+      ref={innerRef}
       onClick={onClick}
       onContextMenu={onMenu}
       className={`flex items-center h-12 border-b border-app-border/50 cursor-pointer ${

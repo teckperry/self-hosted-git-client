@@ -36,6 +36,7 @@ interface AppState {
   toast: Toast | null
   theme: ThemeMode
   sidebarOpen: boolean
+  focusZone: 'commits' | 'files'
 
   // repo data
   commits: Commit[]
@@ -56,6 +57,9 @@ interface AppState {
   // actions
   setTheme: (t: ThemeMode) => void
   toggleSidebar: () => void
+  setFocusZone: (zone: 'commits' | 'files') => void
+  navigateCommits: (dir: -1 | 1) => void
+  navigateFiles: (dir: -1 | 1) => void
   showToast: (t: Toast | null) => void
   loadRecent: () => Promise<void>
   pickAndOpenRepo: () => Promise<void>
@@ -113,6 +117,7 @@ export const useStore = create<AppState>()((set, get) => ({
   toast: null,
   theme: 'dark',
   sidebarOpen: false,
+  focusZone: 'commits',
 
   commits: [],
   status: null,
@@ -134,6 +139,48 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+
+  setFocusZone: (zone) => set({ focusZone: zone }),
+
+  navigateCommits: (dir) => {
+    const { commits, status, selection } = get()
+    const dirty = !!status && !status.isClean
+    const ids: string[] = dirty
+      ? ['__wip__', ...commits.map((c) => c.hash)]
+      : commits.map((c) => c.hash)
+    if (ids.length === 0) return
+    let idx =
+      selection?.type === 'wip'
+        ? ids.indexOf('__wip__')
+        : selection?.type === 'commit'
+          ? ids.indexOf(selection.hash)
+          : -1
+    idx = idx < 0 ? 0 : Math.min(Math.max(idx + dir, 0), ids.length - 1)
+    const target = ids[idx]
+    if (target === '__wip__') void get().selectWip()
+    else void get().selectCommit(target)
+  },
+
+  navigateFiles: (dir) => {
+    const { selection } = get()
+    if (selection?.type === 'commit') {
+      const files = get().commitDiff
+      if (files.length === 0) return
+      const cur = get().selectedFilePath
+      let idx = files.findIndex((f) => (f.newPath || f.oldPath) === cur)
+      idx = idx < 0 ? 0 : Math.min(Math.max(idx + dir, 0), files.length - 1)
+      get().selectCommitFile(files[idx].newPath || files[idx].oldPath)
+    } else if (selection?.type === 'wip') {
+      const st = get().status
+      if (!st) return
+      const files = [...st.unstaged, ...st.staged]
+      if (files.length === 0) return
+      const wf = get().workingFile
+      let idx = wf ? files.findIndex((f) => f.path === wf.path && f.staged === wf.staged) : -1
+      idx = idx < 0 ? 0 : Math.min(Math.max(idx + dir, 0), files.length - 1)
+      void get().selectWorkingFile(files[idx])
+    }
+  },
 
   showToast: (toast) => {
     set({ toast })
