@@ -52,6 +52,10 @@ export function registerIpcHandlers(): void {
   handle(Channels.getRecentRepos, () => store.getRecentRepos())
   handle(Channels.addRecentRepo, (path: string) => store.addRecentRepo(path, Date.now()))
   handle(Channels.removeRecentRepo, (path: string) => store.removeRecentRepo(path))
+  handle(Channels.getSession, () => store.getSession())
+  handle(Channels.setSession, (openRepos: string[], activeRepo: string | null) =>
+    store.setSession(openRepos, activeRepo)
+  )
 
   // --- repo lifecycle ---
   handle(Channels.openRepo, (path: string) => gitService.openRepo(path))

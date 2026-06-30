@@ -3,6 +3,7 @@ import { useStore } from './store/useStore'
 import { TitleBar } from './components/TitleBar'
 import { Toolbar } from './components/Toolbar'
 import { Sidebar } from './components/Sidebar'
+import { TabBar } from './components/TabBar'
 import { CommitGraph } from './components/CommitGraph'
 import { DetailPanel } from './components/DetailPanel'
 import { ChangesPanel } from './components/ChangesPanel'
@@ -16,13 +17,15 @@ export default function App(): React.JSX.Element {
   const selection = useStore((s) => s.selection)
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const loadRecent = useStore((s) => s.loadRecent)
+  const restoreSession = useStore((s) => s.restoreSession)
   const [sshOpen, setSshOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(560)
   const dragging = useRef(false)
 
   useEffect(() => {
     loadRecent()
-  }, [loadRecent])
+    restoreSession()
+  }, [loadRecent, restoreSession])
 
   const onMouseDown = useCallback(() => {
     dragging.current = true
@@ -53,6 +56,7 @@ export default function App(): React.JSX.Element {
 
       {repo ? (
         <>
+          <TabBar />
           <Toolbar />
           <div className="flex-1 flex min-h-0">
             {sidebarOpen && <Sidebar />}

@@ -8,6 +8,8 @@ export const Channels = {
   addRecentRepo: 'app:addRecentRepo',
   removeRecentRepo: 'app:removeRecentRepo',
   openExternal: 'app:openExternal',
+  getSession: 'app:getSession',
+  setSession: 'app:setSession',
 
   // repo lifecycle
   openRepo: 'git:openRepo',

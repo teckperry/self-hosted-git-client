@@ -1,28 +1,32 @@
 import { app } from 'electron'
 import { promises as fs } from 'fs'
 import { join, basename } from 'path'
-import type { RecentRepo } from '@shared/types'
+import type { RecentRepo, AppSession } from '@shared/types'
 
-// Tiny JSON-file persistence for app-level state (recent repositories, etc.).
-// Lives in the per-user Electron userData directory.
+// Tiny JSON-file persistence for app-level state (recent repositories, open
+// tabs, …). Lives in the per-user Electron userData directory.
 
 interface PersistedState {
   recentRepos: RecentRepo[]
+  openRepos: string[]
+  activeRepo: string | null
 }
 
 const FILE = () => join(app.getPath('userData'), 'state.json')
 const MAX_RECENT = 15
 
-let state: PersistedState = { recentRepos: [] }
+const emptyState = (): PersistedState => ({ recentRepos: [], openRepos: [], activeRepo: null })
+
+let state: PersistedState = emptyState()
 let loaded = false
 
 async function load(): Promise<void> {
   if (loaded) return
   try {
     const txt = await fs.readFile(FILE(), 'utf8')
-    state = { recentRepos: [], ...JSON.parse(txt) }
+    state = { ...emptyState(), ...JSON.parse(txt) }
   } catch {
-    state = { recentRepos: [] }
+    state = emptyState()
   }
   loaded = true
 }
@@ -55,5 +59,17 @@ export const store = {
     state.recentRepos = state.recentRepos.filter((r) => r.path !== path)
     await save()
     return this.getRecentRepos()
+  },
+
+  async getSession(): Promise<AppSession> {
+    await load()
+    return { openRepos: state.openRepos ?? [], activeRepo: state.activeRepo ?? null }
+  },
+
+  async setSession(openRepos: string[], activeRepo: string | null): Promise<void> {
+    await load()
+    state.openRepos = openRepos
+    state.activeRepo = activeRepo
+    await save()
   }
 }

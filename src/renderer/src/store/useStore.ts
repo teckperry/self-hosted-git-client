@@ -28,6 +28,7 @@ export interface Toast {
 interface AppState {
   // session
   repo: RepoInfo | null
+  tabs: RepoInfo[]
   recentRepos: RecentRepo[]
   loadingRepo: boolean
   busy: boolean
@@ -61,6 +62,11 @@ interface AppState {
   pickAndCloneRepo: (url: string) => Promise<void>
   pickAndInitRepo: () => Promise<void>
   openRepoByPath: (path: string) => Promise<void>
+  activateRepo: (info: RepoInfo) => Promise<void>
+  switchTab: (path: string) => Promise<void>
+  closeTab: (path: string) => void
+  restoreSession: () => Promise<void>
+  persistSession: () => void
   removeRecent: (path: string) => Promise<void>
   closeRepo: () => void
   refreshAll: () => Promise<void>
@@ -99,6 +105,7 @@ interface AppState {
 
 export const useStore = create<AppState>()((set, get) => ({
   repo: null,
+  tabs: [],
   recentRepos: [],
   loadingRepo: false,
   busy: false,
@@ -180,30 +187,118 @@ export const useStore = create<AppState>()((set, get) => ({
   openRepoByPath: async (path) => {
     set({ loadingRepo: true })
     try {
-      const repo = await call(api.openRepo(path))
+      const info = await call(api.openRepo(path))
       const recent = await call(api.addRecentRepo(path))
+      const tabs = get().tabs.some((t) => t.path === info.path)
+        ? get().tabs.map((t) => (t.path === info.path ? info : t))
+        : [...get().tabs, info]
+      set({ recentRepos: recent, tabs })
+      await get().activateRepo(info)
+      get().persistSession()
+    } catch (e) {
+      get().showToast({ kind: 'error', message: errMsg(e) })
+    } finally {
+      set({ loadingRepo: false })
+    }
+  },
+
+  // Load a repo's data and make it the active tab.
+  activateRepo: async (info) => {
+    set({
+      repo: info,
+      selection: null,
+      commitDiff: [],
+      workingDiff: [],
+      selectedFilePath: null,
+      workingFile: null
+    })
+    await get().refreshAll()
+    // default selection: working changes if dirty, else latest commit
+    const st = get().status
+    if (st && !st.isClean) await get().selectWip()
+    else {
+      const first = get().commits[0]
+      if (first) await get().selectCommit(first.hash)
+    }
+  },
+
+  switchTab: async (path) => {
+    if (get().repo?.path === path) return
+    const existing = get().tabs.find((t) => t.path === path)
+    if (!existing) return
+    set({ loadingRepo: true })
+    try {
+      const info = await call(api.openRepo(path)).catch(() => existing)
+      set({ tabs: get().tabs.map((t) => (t.path === path ? info : t)) })
+      await get().activateRepo(info)
+      get().persistSession()
+    } finally {
+      set({ loadingRepo: false })
+    }
+  },
+
+  closeTab: (path) => {
+    const tabs = get().tabs.filter((t) => t.path !== path)
+    const wasActive = get().repo?.path === path
+    set({ tabs })
+    if (wasActive) {
+      if (tabs.length > 0) {
+        // switchTab persists the session once the neighbor is active
+        void get().switchTab(tabs[tabs.length - 1].path)
+        return
+      }
       set({
-        repo,
-        recentRepos: recent,
+        repo: null,
+        commits: [],
+        status: null,
+        branches: [],
+        remotes: [],
+        stashes: [],
+        tags: [],
         selection: null,
         commitDiff: [],
         workingDiff: [],
         selectedFilePath: null,
         workingFile: null
       })
-      await get().refreshAll()
-      // default selection: working changes if dirty, else latest commit
-      const st = get().status
-      if (st && !st.isClean) await get().selectWip()
-      else {
-        const first = get().commits[0]
-        if (first) await get().selectCommit(first.hash)
+    }
+    get().persistSession()
+  },
+
+  // Reopen the repos that were open in the previous session.
+  restoreSession: async () => {
+    let session
+    try {
+      session = await call(api.getSession())
+    } catch {
+      return
+    }
+    if (!session.openRepos || session.openRepos.length === 0) return
+    set({ loadingRepo: true })
+    try {
+      const valid: RepoInfo[] = []
+      for (const p of session.openRepos) {
+        try {
+          valid.push(await call(api.openRepo(p)))
+        } catch {
+          /* repo moved or deleted — drop it from the session */
+        }
       }
-    } catch (e) {
-      get().showToast({ kind: 'error', message: errMsg(e) })
+      set({ tabs: valid })
+      if (valid.length > 0) {
+        const active = valid.find((t) => t.path === session.activeRepo) ?? valid[0]
+        await get().activateRepo(active)
+      }
+      get().persistSession() // persist the cleaned-up session
     } finally {
       set({ loadingRepo: false })
     }
+  },
+
+  persistSession: () => {
+    const paths = get().tabs.map((t) => t.path)
+    const active = get().repo?.path ?? null
+    api.setSession(paths, active).catch(() => {})
   },
 
   removeRecent: async (path) => {
@@ -217,6 +312,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   closeRepo: () => {
     set({
+      tabs: [],
       repo: null,
       commits: [],
       status: null,
@@ -230,6 +326,7 @@ export const useStore = create<AppState>()((set, get) => ({
       selectedFilePath: null,
       workingFile: null
     })
+    get().persistSession()
     get().loadRecent()
   },
 

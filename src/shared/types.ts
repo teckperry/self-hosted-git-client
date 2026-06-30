@@ -156,3 +156,9 @@ export interface RecentRepo {
   name: string
   lastOpened: number
 }
+
+/** Persisted UI session: which repos are open as tabs and which one is active. */
+export interface AppSession {
+  openRepos: string[]
+  activeRepo: string | null
+}
