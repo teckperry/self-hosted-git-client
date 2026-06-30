@@ -20,6 +20,9 @@ export type Selection =
   | { type: 'wip' }
   | null
 
+/** How the full-page diff editor renders a file's changes. */
+export type DiffViewMode = 'inline' | 'split'
+
 export interface Toast {
   kind: 'info' | 'success' | 'error'
   message: string
@@ -37,6 +40,9 @@ interface AppState {
   theme: ThemeMode
   sidebarOpen: boolean
   focusZone: 'commits' | 'files'
+  /** When true, the full-page diff editor replaces the commit graph. */
+  editorOpen: boolean
+  diffViewMode: DiffViewMode
 
   // repo data
   commits: Commit[]
@@ -58,6 +64,9 @@ interface AppState {
   setTheme: (t: ThemeMode) => void
   toggleSidebar: () => void
   setFocusZone: (zone: 'commits' | 'files') => void
+  openEditor: () => void
+  closeEditor: () => void
+  setDiffViewMode: (mode: DiffViewMode) => void
   navigateCommits: (dir: -1 | 1) => void
   navigateFiles: (dir: -1 | 1) => void
   showToast: (t: Toast | null) => void
@@ -118,6 +127,8 @@ export const useStore = create<AppState>()((set, get) => ({
   theme: 'dark',
   sidebarOpen: false,
   focusZone: 'commits',
+  editorOpen: false,
+  diffViewMode: 'inline',
 
   commits: [],
   status: null,
@@ -141,6 +152,10 @@ export const useStore = create<AppState>()((set, get) => ({
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
   setFocusZone: (zone) => set({ focusZone: zone }),
+
+  openEditor: () => set({ editorOpen: true }),
+  closeEditor: () => set({ editorOpen: false }),
+  setDiffViewMode: (mode) => set({ diffViewMode: mode }),
 
   navigateCommits: (dir) => {
     const { commits, status, selection } = get()
@@ -169,6 +184,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const cur = get().selectedFilePath
       let idx = files.findIndex((f) => (f.newPath || f.oldPath) === cur)
       idx = idx < 0 ? 0 : Math.min(Math.max(idx + dir, 0), files.length - 1)
+      set({ editorOpen: true })
       get().selectCommitFile(files[idx].newPath || files[idx].oldPath)
     } else if (selection?.type === 'wip') {
       const st = get().status
@@ -178,6 +194,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const wf = get().workingFile
       let idx = wf ? files.findIndex((f) => f.path === wf.path && f.staged === wf.staged) : -1
       idx = idx < 0 ? 0 : Math.min(Math.max(idx + dir, 0), files.length - 1)
+      set({ editorOpen: true })
       void get().selectWorkingFile(files[idx])
     }
   },
@@ -257,7 +274,8 @@ export const useStore = create<AppState>()((set, get) => ({
       commitDiff: [],
       workingDiff: [],
       selectedFilePath: null,
-      workingFile: null
+      workingFile: null,
+      editorOpen: false
     })
     await get().refreshAll()
     // default selection: working changes if dirty, else latest commit
@@ -306,7 +324,8 @@ export const useStore = create<AppState>()((set, get) => ({
         commitDiff: [],
         workingDiff: [],
         selectedFilePath: null,
-        workingFile: null
+        workingFile: null,
+        editorOpen: false
       })
     }
     get().persistSession()
@@ -371,7 +390,8 @@ export const useStore = create<AppState>()((set, get) => ({
       commitDiff: [],
       workingDiff: [],
       selectedFilePath: null,
-      workingFile: null
+      workingFile: null,
+      editorOpen: false
     })
     get().persistSession()
     get().loadRecent()
@@ -499,9 +519,12 @@ export const useStore = create<AppState>()((set, get) => ({
       },
       'Commit created'
     ).then(async () => {
-      // after committing, move selection to the new HEAD commit
+      // after committing, return to the graph and select the new HEAD commit
       const head = get().commits[0]
-      if (head && get().status?.isClean) await get().selectCommit(head.hash)
+      if (head && get().status?.isClean) {
+        set({ editorOpen: false })
+        await get().selectCommit(head.hash)
+      }
     }),
 
   push: (opts) =>

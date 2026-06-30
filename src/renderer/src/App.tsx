@@ -5,6 +5,7 @@ import { Toolbar } from './components/Toolbar'
 import { Sidebar } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { CommitGraph } from './components/CommitGraph'
+import { DiffEditor } from './components/DiffEditor'
 import { DetailPanel } from './components/DetailPanel'
 import { ChangesPanel } from './components/ChangesPanel'
 import { StatusBar } from './components/StatusBar'
@@ -15,6 +16,7 @@ import { Toast } from './components/Toast'
 export default function App(): React.JSX.Element {
   const repo = useStore((s) => s.repo)
   const selection = useStore((s) => s.selection)
+  const editorOpen = useStore((s) => s.editorOpen)
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const loadRecent = useStore((s) => s.loadRecent)
   const restoreSession = useStore((s) => s.restoreSession)
@@ -97,7 +99,7 @@ export default function App(): React.JSX.Element {
           <div className="flex-1 flex min-h-0">
             {sidebarOpen && <Sidebar />}
             <main className="flex-1 min-w-0 border-r border-app-border">
-              <CommitGraph />
+              {editorOpen ? <DiffEditor /> : <CommitGraph />}
             </main>
             <div
               onMouseDown={onMouseDown}

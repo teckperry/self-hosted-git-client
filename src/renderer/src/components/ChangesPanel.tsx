@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, Minus, Undo2, Check, FileEdit } from 'lucide-react'
+import { Plus, Minus, Undo2, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { DiffViewer } from './DiffViewer'
 import { FileStatusBadge } from './FileStatusBadge'
 import { Button } from './ui'
 import { ConfirmModal } from './PromptModal'
@@ -10,8 +9,6 @@ import type { FileChange } from '@shared/types'
 export function ChangesPanel(): React.JSX.Element {
   const status = useStore((s) => s.status)
   const workingFile = useStore((s) => s.workingFile)
-  const workingDiff = useStore((s) => s.workingDiff)
-  const loadingDiff = useStore((s) => s.loadingDiff)
   const selectWorkingFile = useStore((s) => s.selectWorkingFile)
   const stage = useStore((s) => s.stage)
   const unstage = useStore((s) => s.unstage)
@@ -21,6 +18,7 @@ export function ChangesPanel(): React.JSX.Element {
   const commit = useStore((s) => s.commit)
   const busy = useStore((s) => s.busy)
   const setFocusZone = useStore((s) => s.setFocusZone)
+  const openEditor = useStore((s) => s.openEditor)
 
   const [message, setMessage] = useState('')
   const [amend, setAmend] = useState(false)
@@ -46,12 +44,10 @@ export function ChangesPanel(): React.JSX.Element {
     setAmend(false)
   }
 
-  const activeFile = workingDiff[0] ?? null
-
   return (
     <div className="h-full flex flex-col">
       {/* Unstaged — dedicated container */}
-      <div className="shrink-0 flex flex-col border-b-2 border-app-border">
+      <div className="flex-1 min-h-0 flex flex-col border-b-2 border-app-border">
         <ListHeader
           title={`Unstaged (${status.unstaged.length})`}
           action={
@@ -65,7 +61,7 @@ export function ChangesPanel(): React.JSX.Element {
             ) : null
           }
         />
-        <div className="overflow-auto max-h-[180px] min-h-[36px]">
+        <div className="flex-1 overflow-auto min-h-[36px]">
           {status.unstaged.map((f) => (
             <ChangeRow
               key={`u-${f.path}`}
@@ -79,6 +75,7 @@ export function ChangesPanel(): React.JSX.Element {
               onClick={() => {
                 setFocusZone('files')
                 selectWorkingFile(f)
+                openEditor()
               }}
               actions={
                 <>
@@ -97,7 +94,7 @@ export function ChangesPanel(): React.JSX.Element {
       </div>
 
       {/* Staged — dedicated container */}
-      <div className="shrink-0 flex flex-col border-b border-app-border">
+      <div className="flex-1 min-h-0 flex flex-col border-b border-app-border">
         <ListHeader
           title={`Staged (${status.staged.length})`}
           action={
@@ -111,7 +108,7 @@ export function ChangesPanel(): React.JSX.Element {
             ) : null
           }
         />
-        <div className="overflow-auto max-h-[180px] min-h-[36px]">
+        <div className="flex-1 overflow-auto min-h-[36px]">
           {status.staged.map((f) => (
             <ChangeRow
               key={`s-${f.path}`}
@@ -125,6 +122,7 @@ export function ChangesPanel(): React.JSX.Element {
               onClick={() => {
                 setFocusZone('files')
                 selectWorkingFile(f)
+                openEditor()
               }}
               actions={
                 <RowAction title="Unstage" onClick={() => unstage([f.path])}>
@@ -135,18 +133,6 @@ export function ChangesPanel(): React.JSX.Element {
           ))}
           {status.staged.length === 0 && <Empty>No staged files</Empty>}
         </div>
-      </div>
-
-      {/* diff */}
-      <div className="flex-1 min-h-0">
-        {activeFile ? (
-          <DiffViewer file={activeFile} loading={loadingDiff} />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-app-muted text-[13px]">
-            <FileEdit size={26} className="mb-2 opacity-50" />
-            Select a file to view its changes
-          </div>
-        )}
       </div>
 
       {/* commit box */}
