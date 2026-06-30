@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect, useCallback } from 'react'
-import { GitCommit, Copy } from 'lucide-react'
+import { GitCommit, Copy, CloudOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { fullDate, initials, colorFromString } from '../lib/format'
 import { DiffViewer } from './DiffViewer'
@@ -57,6 +57,14 @@ export function DetailPanel(): React.JSX.Element {
               <span className="selectable">{`<${commit.authorEmail}>`}</span> · {fullDate(commit.date)}
             </div>
           </div>
+          {!commit.pushed && (
+            <span
+              title="Not pushed to any remote"
+              className="flex items-center gap-1 px-1.5 h-[18px] rounded bg-app-warning/20 text-app-warning text-[10px] font-medium shrink-0 mt-0.5"
+            >
+              <CloudOff size={11} /> Not pushed
+            </span>
+          )}
           <button
             title="Copy SHA"
             onClick={() => navigator.clipboard.writeText(commit.hash)}

@@ -31,6 +31,8 @@ export interface Commit {
   subject: string
   body: string
   refs: CommitRef[]
+  /** true if reachable from a remote-tracking ref (i.e. already pushed) */
+  pushed: boolean
 }
 
 /** A working-directory / index file change. */

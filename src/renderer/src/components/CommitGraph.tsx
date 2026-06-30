@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
-import { FileEdit } from 'lucide-react'
+import { FileEdit, CloudOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { computeGraph, type GraphRow } from '../lib/graph'
 import { relativeTime, initials, colorFromString } from '../lib/format'
@@ -170,10 +170,26 @@ function CommitRow({
             strokeWidth={2}
           />
         ))}
-        <circle cx={x(row.col)} cy={ROW_H / 2} r={R} fill={row.color} stroke="rgb(var(--app-bg))" strokeWidth={2} />
+        {/* filled node = pushed, hollow node = local-only (not pushed) */}
+        <circle
+          cx={x(row.col)}
+          cy={ROW_H / 2}
+          r={R}
+          fill={commit.pushed ? row.color : 'rgb(var(--app-bg))'}
+          stroke={commit.pushed ? 'rgb(var(--app-bg))' : row.color}
+          strokeWidth={2}
+        />
       </svg>
 
       <div className="flex-1 min-w-0 flex items-center gap-1.5 pr-2">
+        {!commit.pushed && (
+          <span
+            title="Not pushed to any remote"
+            className="flex items-center gap-1 px-1.5 h-[18px] rounded bg-app-warning/20 text-app-warning text-[10px] font-medium shrink-0"
+          >
+            <CloudOff size={11} /> unpushed
+          </span>
+        )}
         {commit.refs.map((ref, i) => (
           <RefBadge key={i} refObj={ref} />
         ))}

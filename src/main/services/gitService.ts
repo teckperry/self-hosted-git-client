@@ -141,8 +141,22 @@ export const gitService = {
         date: f[5],
         subject: f[6],
         body: (f[7] || '').trim(),
-        refs: parseRefs(f[8] || '')
+        refs: parseRefs(f[8] || ''),
+        pushed: false
       })
+    }
+    // Mark commits reachable from any remote-tracking ref as "pushed".
+    try {
+      const remoteOut = await git(repoPath).raw(['rev-list', '--remotes'])
+      const remote = new Set(
+        remoteOut
+          .split('\n')
+          .map((h) => h.trim())
+          .filter(Boolean)
+      )
+      for (const c of commits) c.pushed = remote.has(c.hash)
+    } catch {
+      // no remotes / no remote refs — everything stays unpushed
     }
     return commits
   },
