@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { ArrowDown, ArrowUp, RefreshCw, GitBranch, Archive, GitMerge } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, GitBranch, Archive, GitMerge, PanelLeft } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { Button } from './ui'
+import { Button, IconButton } from './ui'
 import { PromptModal } from './PromptModal'
 
 export function Toolbar(): React.JSX.Element {
@@ -13,6 +13,8 @@ export function Toolbar(): React.JSX.Element {
   const push = useStore((s) => s.push)
   const createBranch = useStore((s) => s.createBranch)
   const stashSave = useStore((s) => s.stashSave)
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  const toggleSidebar = useStore((s) => s.toggleSidebar)
 
   const [branchModal, setBranchModal] = useState(false)
   const [stashModal, setStashModal] = useState(false)
@@ -29,6 +31,14 @@ export function Toolbar(): React.JSX.Element {
 
   return (
     <div className="flex items-center gap-1 h-12 px-3 bg-app-panel border-b border-app-border shrink-0">
+      <IconButton
+        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+        onClick={toggleSidebar}
+        className={sidebarOpen ? 'text-app-accent' : ''}
+      >
+        <PanelLeft size={16} />
+      </IconButton>
+      <div className="w-px h-6 bg-app-border mx-1.5" />
       <Button variant="ghost" onClick={() => fetch()} disabled={busy} title="Fetch remote refs">
         <RefreshCw size={15} /> Fetch
       </Button>

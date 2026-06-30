@@ -14,6 +14,7 @@ import { Toast } from './components/Toast'
 export default function App(): React.JSX.Element {
   const repo = useStore((s) => s.repo)
   const selection = useStore((s) => s.selection)
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
   const loadRecent = useStore((s) => s.loadRecent)
   const [sshOpen, setSshOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(560)
@@ -54,7 +55,7 @@ export default function App(): React.JSX.Element {
         <>
           <Toolbar />
           <div className="flex-1 flex min-h-0">
-            <Sidebar />
+            {sidebarOpen && <Sidebar />}
             <main className="flex-1 min-w-0 border-r border-app-border">
               <CommitGraph />
             </main>

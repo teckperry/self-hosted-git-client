@@ -34,6 +34,7 @@ interface AppState {
   busyLabel: string
   toast: Toast | null
   theme: ThemeMode
+  sidebarOpen: boolean
 
   // repo data
   commits: Commit[]
@@ -53,6 +54,7 @@ interface AppState {
 
   // actions
   setTheme: (t: ThemeMode) => void
+  toggleSidebar: () => void
   showToast: (t: Toast | null) => void
   loadRecent: () => Promise<void>
   pickAndOpenRepo: () => Promise<void>
@@ -103,6 +105,7 @@ export const useStore = create<AppState>()((set, get) => ({
   busyLabel: '',
   toast: null,
   theme: 'dark',
+  sidebarOpen: false,
 
   commits: [],
   status: null,
@@ -122,6 +125,8 @@ export const useStore = create<AppState>()((set, get) => ({
     applyBranding(t)
     set({ theme: t })
   },
+
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
   showToast: (toast) => {
     set({ toast })

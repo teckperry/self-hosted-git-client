@@ -8,10 +8,11 @@ import {
   Tag as TagIcon,
   Archive,
   FileEdit,
-  Server
+  Server,
+  PanelLeftClose
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { ContextMenu, useContextMenu, type MenuItem } from './ui'
+import { ContextMenu, useContextMenu, IconButton, type MenuItem } from './ui'
 import { ConfirmModal } from './PromptModal'
 import type { Branch } from '@shared/types'
 
@@ -23,6 +24,7 @@ export function Sidebar(): React.JSX.Element {
   const stashes = useStore((s) => s.stashes)
   const selection = useStore((s) => s.selection)
   const selectWip = useStore((s) => s.selectWip)
+  const toggleSidebar = useStore((s) => s.toggleSidebar)
 
   const local = branches.filter((b) => !b.isRemote)
   const remote = branches.filter((b) => b.isRemote)
@@ -33,6 +35,12 @@ export function Sidebar(): React.JSX.Element {
 
   return (
     <aside className="w-60 shrink-0 bg-app-panel border-r border-app-border flex flex-col overflow-y-auto select-none">
+      <div className="flex items-center justify-between h-9 px-3 border-b border-app-border shrink-0">
+        <span className="text-[11px] uppercase tracking-wide text-app-muted">Repository</span>
+        <IconButton title="Hide sidebar" onClick={toggleSidebar}>
+          <PanelLeftClose size={15} />
+        </IconButton>
+      </div>
       {/* Working changes */}
       <button
         onClick={selectWip}
