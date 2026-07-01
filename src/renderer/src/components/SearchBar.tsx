@@ -34,7 +34,7 @@ export function SearchBar(): React.JSX.Element | null {
         onKeyDown={(e) => {
           if (e.key === 'Escape') close()
         }}
-        placeholder="Search branches, commits, files, code…"
+        placeholder="Search branches, commits, files…"
         className="selectable w-64 bg-transparent outline-none text-[13px] text-app-text placeholder:text-app-muted"
       />
       {query.trim() && (
