@@ -11,11 +11,15 @@ import type { DiffFile, DiffLine } from '@shared/types'
  */
 export function DiffViewer({
   file,
-  loading
+  loading,
+  searchQuery = ''
 }: {
   file: DiffFile | null
   loading?: boolean
+  /** in-editor code search: lines not containing it are dimmed */
+  searchQuery?: string
 }): React.JSX.Element {
+  const q = searchQuery.trim().toLowerCase()
   if (loading) {
     return (
       <Centered>
@@ -51,7 +55,11 @@ export function DiffViewer({
                 <td className="px-3 py-0.5 text-app-muted whitespace-pre">{hunk.header}</td>
               </tr>
               {hunk.lines.map((line, li) => (
-                <InlineRow key={`${hi}-${li}`} line={line} />
+                <InlineRow
+                  key={`${hi}-${li}`}
+                  line={line}
+                  dimmed={q !== '' && !line.content.toLowerCase().includes(q)}
+                />
               ))}
             </React.Fragment>
           ))}
@@ -61,7 +69,7 @@ export function DiffViewer({
   )
 }
 
-function InlineRow({ line }: { line: DiffLine }): React.JSX.Element {
+function InlineRow({ line, dimmed }: { line: DiffLine; dimmed: boolean }): React.JSX.Element {
   const bg =
     line.type === 'add' ? 'bg-app-success/10' : line.type === 'del' ? 'bg-app-danger/10' : ''
   const marker = line.type === 'add' ? '+' : line.type === 'del' ? '−' : ' '
@@ -72,7 +80,7 @@ function InlineRow({ line }: { line: DiffLine }): React.JSX.Element {
         ? 'text-app-danger'
         : 'text-app-muted'
   return (
-    <tr className={bg}>
+    <tr className={`${bg} ${dimmed ? 'opacity-25' : ''}`}>
       <td className="w-12 px-2 text-right text-app-muted/60 select-none align-top">
         {line.oldLine ?? ''}
       </td>

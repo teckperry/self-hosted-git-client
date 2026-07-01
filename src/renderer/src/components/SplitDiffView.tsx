@@ -38,13 +38,17 @@ function toSplitRows(lines: DiffLine[]): SplitRow[] {
  */
 export function SplitDiffView({
   file,
-  primaryRef
+  primaryRef,
+  searchQuery = ''
 }: {
   file: DiffFile
   primaryRef: React.RefObject<HTMLDivElement>
+  /** in-editor code search: rows not containing it (either side) are dimmed */
+  searchQuery?: string
 }): React.JSX.Element {
   const rightRef = useRef<HTMLDivElement>(null)
   const syncing = useRef(false)
+  const q = searchQuery.trim().toLowerCase()
 
   const hunks = useMemo(
     () => file.hunks.map((h) => ({ header: h.header, rows: toSplitRows(h.lines) })),
@@ -79,14 +83,14 @@ export function SplitDiffView({
         onScroll={() => mirror(primaryRef.current, rightRef.current)}
         className="flex-1 min-w-0 overflow-auto border-r border-app-border"
       >
-        <Side hunks={hunks} side="left" />
+        <Side hunks={hunks} side="left" query={q} />
       </div>
       <div
         ref={rightRef}
         onScroll={() => mirror(rightRef.current, primaryRef.current)}
         className="flex-1 min-w-0 overflow-auto"
       >
-        <Side hunks={hunks} side="right" />
+        <Side hunks={hunks} side="right" query={q} />
       </div>
     </div>
   )
@@ -94,11 +98,16 @@ export function SplitDiffView({
 
 function Side({
   hunks,
-  side
+  side,
+  query
 }: {
   hunks: { header: string; rows: SplitRow[] }[]
   side: 'left' | 'right'
+  query: string
 }): React.JSX.Element {
+  const rowMatches = (row: SplitRow): boolean =>
+    (!!row.left && row.left.content.toLowerCase().includes(query)) ||
+    (!!row.right && row.right.content.toLowerCase().includes(query))
   return (
     <div className="min-w-full w-max font-mono text-[12px] leading-[1.5]">
       <table className="w-full border-collapse">
@@ -115,7 +124,12 @@ function Side({
                 </td>
               </tr>
               {h.rows.map((row, ri) => (
-                <SideRow key={ri} line={side === 'left' ? row.left : row.right} side={side} />
+                <SideRow
+                  key={ri}
+                  line={side === 'left' ? row.left : row.right}
+                  side={side}
+                  dimmed={query !== '' && !rowMatches(row)}
+                />
               ))}
             </React.Fragment>
           ))}
@@ -125,14 +139,22 @@ function Side({
   )
 }
 
-function SideRow({ line, side }: { line: DiffLine | null; side: 'left' | 'right' }): React.JSX.Element {
+function SideRow({
+  line,
+  side,
+  dimmed
+}: {
+  line: DiffLine | null
+  side: 'left' | 'right'
+  dimmed: boolean
+}): React.JSX.Element {
   const num = line ? (side === 'left' ? line.oldLine : line.newLine) : null
   let bg = ''
   if (!line) bg = 'bg-app-panel-2/30'
   else if (line.type === 'del') bg = 'bg-app-danger/10'
   else if (line.type === 'add') bg = 'bg-app-success/10'
   return (
-    <tr>
+    <tr className={dimmed ? 'opacity-25' : ''}>
       <td className={`w-11 px-2 text-right text-app-muted/60 select-none align-top ${bg}`}>
         {num ?? ''}
       </td>
