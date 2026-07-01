@@ -56,11 +56,14 @@ export default function App(): React.JSX.Element {
   // ←/→ switch focus between the commit list and the file list.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      // Cmd/Ctrl+F opens the search bar (globally, even while typing).
+      // Cmd/Ctrl+F opens search (globally, even while typing). When the diff
+      // editor is open it searches the code; otherwise it searches commits.
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
-        if (useStore.getState().repo) {
+        const s = useStore.getState()
+        if (s.repo) {
           e.preventDefault()
-          useStore.getState().openSearch()
+          if (s.editorOpen) s.openEditorSearch()
+          else s.openSearch()
         }
         return
       }

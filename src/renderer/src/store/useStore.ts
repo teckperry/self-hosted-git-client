@@ -57,6 +57,9 @@ interface AppState {
   searchMatches: Set<string> | null
   /** true while the git-backed (file-name) pass is still running */
   searchLoading: boolean
+  // in-editor code search (Cmd/Ctrl+F while the diff editor is open)
+  editorSearchOpen: boolean
+  editorSearchQuery: string
 
   // repo data
   commits: Commit[]
@@ -87,6 +90,9 @@ interface AppState {
   openSearch: () => void
   closeSearch: () => void
   setSearchQuery: (q: string) => void
+  openEditorSearch: () => void
+  closeEditorSearch: () => void
+  setEditorSearchQuery: (q: string) => void
   checkForUpdate: () => Promise<void>
   downloadUpdate: () => Promise<void>
   dismissUpdate: () => void
@@ -160,6 +166,8 @@ export const useStore = create<AppState>()((set, get) => ({
   searchQuery: '',
   searchMatches: null,
   searchLoading: false,
+  editorSearchOpen: false,
+  editorSearchQuery: '',
 
   commits: [],
   status: null,
@@ -185,7 +193,11 @@ export const useStore = create<AppState>()((set, get) => ({
   setFocusZone: (zone) => set({ focusZone: zone }),
 
   openEditor: () => set({ editorOpen: true }),
-  closeEditor: () => set({ editorOpen: false }),
+  closeEditor: () => set({ editorOpen: false, editorSearchOpen: false, editorSearchQuery: '' }),
+
+  openEditorSearch: () => set({ editorSearchOpen: true }),
+  closeEditorSearch: () => set({ editorSearchOpen: false, editorSearchQuery: '' }),
+  setEditorSearchQuery: (q) => set({ editorSearchQuery: q }),
   setDiffViewMode: (mode) => set({ diffViewMode: mode }),
 
   navigateCommits: (dir) => {

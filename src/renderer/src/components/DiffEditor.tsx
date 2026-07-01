@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import React, { useEffect, useMemo, useRef } from 'react'
+import { Search, X } from 'lucide-react'
 import { useStore, type DiffViewMode } from '../store/useStore'
 import { DiffViewer } from './DiffViewer'
 import { SplitDiffView } from './SplitDiffView'
@@ -17,15 +17,22 @@ export function DiffEditor(): React.JSX.Element {
   const diffViewMode = useStore((s) => s.diffViewMode)
   const setDiffViewMode = useStore((s) => s.setDiffViewMode)
   const closeEditor = useStore((s) => s.closeEditor)
+  const searchOpen = useStore((s) => s.editorSearchOpen)
+  const searchQuery = useStore((s) => s.editorSearchQuery)
+  const setSearchQuery = useStore((s) => s.setEditorSearchQuery)
+  const closeSearch = useStore((s) => s.closeEditorSearch)
 
-  // Close the editor with the Escape key.
+  // Escape closes the code search first (if open), otherwise the editor.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') closeEditor()
+      if (e.key !== 'Escape') return
+      const s = useStore.getState()
+      if (s.editorSearchOpen) s.closeEditorSearch()
+      else s.closeEditor()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeEditor])
+  }, [])
 
   const activeFile: DiffFile | null =
     selection?.type === 'commit'
@@ -37,6 +44,15 @@ export function DiffEditor(): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const activePath = activeFile ? activeFile.newPath || activeFile.oldPath : null
   const showMinimap = !!activeFile && !activeFile.isBinary && activeFile.hunks.length > 0
+
+  // Count code lines matching the in-editor search (for the find bar).
+  const searchMatchCount = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q || !activeFile) return 0
+    let n = 0
+    for (const h of activeFile.hunks) for (const l of h.lines) if (l.content.toLowerCase().includes(q)) n++
+    return n
+  }, [searchQuery, activeFile])
 
   // Reset scroll to the top when switching file or view mode.
   useEffect(() => {
@@ -76,16 +92,67 @@ export function DiffEditor(): React.JSX.Element {
             <DiffViewer file={activeFile} loading={loadingDiff} />
           </div>
         ) : diffViewMode === 'split' ? (
-          <SplitDiffView file={activeFile} primaryRef={scrollRef} />
+          <SplitDiffView file={activeFile} primaryRef={scrollRef} searchQuery={searchQuery} />
         ) : (
           <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto bg-app-bg">
-            <DiffViewer file={activeFile} />
+            <DiffViewer file={activeFile} searchQuery={searchQuery} />
           </div>
         )}
         {showMinimap && activeFile && (
           <Minimap key={`${diffViewMode}:${activePath ?? ''}`} file={activeFile} scrollRef={scrollRef} />
         )}
       </div>
+
+      {searchOpen && (
+        <EditorFindBar
+          query={searchQuery}
+          count={searchMatchCount}
+          onChange={setSearchQuery}
+          onClose={closeSearch}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditorFindBar({
+  query,
+  count,
+  onChange,
+  onClose
+}: {
+  query: string
+  count: number
+  onChange: (q: string) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 h-10 pl-3 pr-1.5 rounded-lg border border-app-border bg-app-panel shadow-2xl">
+      <Search size={15} className="text-app-muted shrink-0" />
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation()
+            onClose()
+          }
+        }}
+        placeholder="Find in code…"
+        className="selectable w-56 bg-transparent outline-none text-[13px] text-app-text placeholder:text-app-muted"
+      />
+      {query.trim() && (
+        <span className="text-[11px] text-app-muted tabular-nums shrink-0">{count}</span>
+      )}
+      <IconButton title="Close (Esc)" onClick={onClose}>
+        <X size={15} />
+      </IconButton>
     </div>
   )
 }
