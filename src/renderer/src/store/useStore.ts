@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api, call } from '../lib/ipc'
 import { applyBranding, type ThemeMode } from '../branding'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import type {
   RepoInfo,
   RecentRepo,
@@ -44,6 +45,8 @@ interface AppState {
   /** set when a normal push was rejected (non-fast-forward); holds the opts to retry with force */
   pushRejected: PushOptions | null
   theme: ThemeMode
+  /** background auto-fetch interval in minutes; 0 disables it */
+  autoFetchMinutes: number
   sidebarOpen: boolean
   focusZone: 'commits' | 'files'
   // update notification
@@ -81,6 +84,7 @@ interface AppState {
 
   // actions
   setTheme: (t: ThemeMode) => void
+  setAutoFetchMinutes: (n: number) => void
   toggleSidebar: () => void
   setFocusZone: (zone: 'commits' | 'files') => void
   openEditor: () => void
@@ -162,7 +166,8 @@ export const useStore = create<AppState>()((set, get) => ({
   busyLabel: '',
   toast: null,
   pushRejected: null,
-  theme: 'dark',
+  theme: loadPrefs().theme,
+  autoFetchMinutes: loadPrefs().autoFetchMinutes,
   sidebarOpen: false,
   focusZone: 'commits',
   editorOpen: false,
@@ -193,6 +198,12 @@ export const useStore = create<AppState>()((set, get) => ({
   setTheme: (t) => {
     applyBranding(t)
     set({ theme: t })
+    savePrefs({ theme: t, autoFetchMinutes: get().autoFetchMinutes })
+  },
+
+  setAutoFetchMinutes: (n) => {
+    set({ autoFetchMinutes: n })
+    savePrefs({ theme: get().theme, autoFetchMinutes: n })
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

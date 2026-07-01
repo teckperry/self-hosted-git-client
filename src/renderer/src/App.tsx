@@ -11,6 +11,7 @@ import { ChangesPanel } from './components/ChangesPanel'
 import { StatusBar } from './components/StatusBar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SshManager } from './components/SshManager'
+import { SettingsModal } from './components/SettingsModal'
 import { Toast } from './components/Toast'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SearchBar } from './components/SearchBar'
@@ -24,7 +25,9 @@ export default function App(): React.JSX.Element {
   const restoreSession = useStore((s) => s.restoreSession)
   const checkForUpdate = useStore((s) => s.checkForUpdate)
   const autoFetch = useStore((s) => s.autoFetch)
+  const autoFetchMinutes = useStore((s) => s.autoFetchMinutes)
   const [sshOpen, setSshOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(504)
   const dragging = useRef(false)
   const sshOpenRef = useRef(sshOpen)
@@ -43,14 +46,15 @@ export default function App(): React.JSX.Element {
   }, [checkForUpdate])
 
   // Keep the open repo in sync with its remote: fetch shortly after opening,
-  // then every 3 minutes, so ahead/behind and the graph always reflect origin.
+  // then on the configured interval, so ahead/behind and the graph reflect
+  // origin. A 0-minute interval disables auto-fetch entirely.
   const repoPath = repo?.path
   useEffect(() => {
-    if (!repoPath) return
+    if (!repoPath || autoFetchMinutes <= 0) return
     autoFetch()
-    const id = setInterval(() => autoFetch(), 3 * 60 * 1000)
+    const id = setInterval(() => autoFetch(), autoFetchMinutes * 60 * 1000)
     return () => clearInterval(id)
-  }, [repoPath, autoFetch])
+  }, [repoPath, autoFetch, autoFetchMinutes])
 
   // Global arrow-key navigation: ↑/↓ move within the focused list,
   // ←/→ switch focus between the commit list and the file list.
@@ -122,7 +126,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-app-bg text-app-text">
-      <TitleBar onOpenSsh={() => setSshOpen(true)} />
+      <TitleBar onOpenSsh={() => setSshOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
       <UpdateBanner />
 
       {repo ? (
@@ -152,6 +156,7 @@ export default function App(): React.JSX.Element {
       )}
 
       {sshOpen && <SshManager onClose={() => setSshOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <SearchBar />
       <Toast />
     </div>
