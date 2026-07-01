@@ -6,6 +6,32 @@ Built with Electron + React + TypeScript.
 > The name is set in a single place and can be changed in seconds (see
 > [Rebranding](#rebranding)).
 
+## Download & install
+
+Grab the installer for your OS from the
+[**Releases**](../../releases/latest) page:
+
+| OS | File | How to install |
+| --- | --- | --- |
+| macOS | `.dmg` | Open it and drag the app into **Applications**. |
+| Windows | `.exe` | Run the installer. |
+| Linux | `.AppImage` | `chmod +x *.AppImage` then run it. Or install the `.deb`. |
+
+### First launch (unsigned app)
+
+Builds are **not code-signed**, so on the first launch your OS shows a
+security warning. This is expected — just allow it once:
+
+- **macOS**: right-click the app → **Open** → **Open**. If it's still
+  blocked, run:
+  ```bash
+  xattr -cr "/Applications/Self-hosted Git Client.app"
+  ```
+- **Windows**: on the SmartScreen dialog click **More info** → **Run anyway**.
+
+Prefer to build it yourself? See [Development](#development) and
+[Build / distribution](#build--distribution).
+
 ## Features
 
 - 🌳 **Commit graph** as a colored tree (multiple lanes, merges, branches).
