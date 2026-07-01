@@ -33,6 +33,9 @@ export interface GraphLayout {
 
 type Lane = { target: string; color: string; current: boolean } | null
 
+/** Fixed color reserved for the main/master branch line so it looks the same everywhere. */
+const MAIN_COLOR = PALETTE[0]
+
 function firstNull(arr: Lane[]): number {
   for (let i = 0; i < arr.length; i++) if (!arr[i]) return i
   return arr.length
@@ -42,6 +45,28 @@ function trimTrailingNulls(arr: Lane[]): Lane[] {
   let end = arr.length
   while (end > 0 && !arr[end - 1]) end--
   return arr.slice(0, end)
+}
+
+/** Set of commit hashes on the first-parent chain starting at `tip`. */
+function firstParentChain(byHash: Map<string, Commit>, tip?: string | null): Set<string> {
+  const chain = new Set<string>()
+  let h: string | undefined = tip ?? undefined
+  while (h && byHash.has(h) && !chain.has(h)) {
+    chain.add(h)
+    h = byHash.get(h)!.parents[0]
+  }
+  return chain
+}
+
+/** The main/master branch tip — prefers a local head, falls back to a remote one. */
+function findMainTip(commits: Commit[]): string | undefined {
+  const isMain = (n: string): boolean => n === 'main' || n === 'master'
+  const local = commits.find((c) => c.refs.some((r) => r.type === 'head' && isMain(r.name)))
+  if (local) return local.hash
+  const remote = commits.find((c) =>
+    c.refs.some((r) => r.type === 'remote' && (r.name.endsWith('/main') || r.name.endsWith('/master')))
+  )
+  return remote?.hash
 }
 
 /**
@@ -55,36 +80,38 @@ function trimTrailingNulls(arr: Lane[]): Lane[] {
  * as `current` on rows and edges so the UI can highlight the active branch line.
  */
 export function computeGraph(commits: Commit[], currentTip?: string | null): GraphLayout {
+  const byHash = new Map(commits.map((c) => [c.hash, c]))
   // First-parent chain of the current branch (tip → root along parents[0]).
-  const chain = new Set<string>()
-  if (currentTip) {
-    const byHash = new Map(commits.map((c) => [c.hash, c]))
-    let h: string | undefined = currentTip
-    while (h && byHash.has(h) && !chain.has(h)) {
-      chain.add(h)
-      h = byHash.get(h)!.parents[0]
-    }
-  }
+  const chain = firstParentChain(byHash, currentTip)
+  // First-parent chain of main/master — pinned to MAIN_COLOR so it looks the
+  // same everywhere, regardless of graph state.
+  const mainTip = findMainTip(commits)
+  const mainChain = firstParentChain(byHash, mainTip)
 
   let lanes: Lane[] = []
   let colorCounter = 0
-  const nextColor = (): string => PALETTE[colorCounter++ % PALETTE.length]
+  // Reserve MAIN_COLOR (palette index 0) for main; other lanes cycle the rest.
+  const reserve = mainTip ? 1 : 0
+  const nextColor = (): string =>
+    PALETTE[reserve + (colorCounter++ % (PALETTE.length - reserve))]
   const rows: GraphRow[] = []
   let width = 1
 
   for (const c of commits) {
     const lanesAbove = lanes.slice()
     const onChain = chain.has(c.hash)
+    const onMain = mainChain.has(c.hash)
 
     // Which column does this commit live in?
-    let myCol = lanesAbove.findIndex((l) => l && l.target === c.hash)
-    let color: string
-    if (myCol === -1) {
-      myCol = firstNull(lanesAbove) // brand-new branch tip / head
-      color = nextColor()
-    } else {
-      color = lanesAbove[myCol]!.color
-    }
+    const existingCol = lanesAbove.findIndex((l) => l && l.target === c.hash)
+    const myCol = existingCol === -1 ? firstNull(lanesAbove) : existingCol
+    // Main commits always take the reserved color; otherwise inherit the lane's
+    // color, or pick the next palette color for a brand-new branch tip.
+    const color = onMain
+      ? MAIN_COLOR
+      : existingCol === -1
+        ? nextColor()
+        : lanesAbove[existingCol]!.color
 
     // Edges coming down from above that merge into this node.
     const incoming: GraphRoute[] = []
