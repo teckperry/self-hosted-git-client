@@ -122,6 +122,9 @@ export function registerIpcHandlers(): void {
   handle(Channels.checkoutCommit, (path: string, hash: string) =>
     gitService.checkoutCommit(path, hash)
   )
+  handle(Channels.rewordHead, (path: string, message: string) =>
+    gitService.rewordHead(path, message)
+  )
   handle(Channels.resetTo, (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     gitService.resetTo(path, hash, mode)
   )

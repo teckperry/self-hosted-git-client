@@ -144,7 +144,10 @@ export function CommitGraph(): React.JSX.Element {
                   selectCommit(row.hash)
                 }}
                 onMenu={(e) =>
-                  cm.open(e, stash ? buildStashMenu(stash, setModal) : buildMenu(commit, setModal))
+                  cm.open(
+                    e,
+                    stash ? buildStashMenu(stash, setModal) : buildMenu(commit, setModal)
+                  )
                 }
                 onBranchMenu={(e, group) => cm.open(e, buildBranchMenu(group, currentBranch, setModal))}
                 onTagMenu={(e, ref) => cm.open(e, buildTagMenu(ref, setModal))}

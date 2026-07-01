@@ -473,6 +473,17 @@ export const gitService = {
     await git(repoPath).commit(opts.message, undefined, options)
   },
 
+  /**
+   * Reword the message of the current HEAD commit, message-only. `--amend`
+   * keeps the original author (name/email/date); `--only` with an empty
+   * pathspec keeps the commit's tree, so any staged changes are left untouched
+   * (not folded into the commit). `--allow-empty` covers an empty HEAD commit.
+   * No env overrides are needed, so simple-git's PAGER/EDITOR guards don't apply.
+   */
+  async rewordHead(repoPath: string, message: string): Promise<void> {
+    await git(repoPath).raw(['commit', '--amend', '--only', '--allow-empty', '-m', message, '--'])
+  },
+
   async push(repoPath: string, opts: PushOptions): Promise<string> {
     const args: string[] = ['push']
     if (opts.force) args.push('--force-with-lease')

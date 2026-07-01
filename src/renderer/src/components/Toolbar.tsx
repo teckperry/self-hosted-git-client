@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Button, IconButton } from './ui'
-import { PromptModal } from './PromptModal'
+import { PromptModal, ConfirmModal } from './PromptModal'
 
 export function Toolbar(): React.JSX.Element {
   const status = useStore((s) => s.status)
@@ -27,6 +27,8 @@ export function Toolbar(): React.JSX.Element {
   const selection = useStore((s) => s.selection)
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
+  const pushRejected = useStore((s) => s.pushRejected)
+  const dismissPushRejected = useStore((s) => s.dismissPushRejected)
 
   const [branchModal, setBranchModal] = useState(false)
 
@@ -118,6 +120,20 @@ export function Toolbar(): React.JSX.Element {
           confirmText="Create and checkout"
           onConfirm={(name) => createBranch(name, true)}
           onClose={() => setBranchModal(false)}
+        />
+      )}
+
+      {pushRejected && (
+        <ConfirmModal
+          title="Push rejected — force push?"
+          message={
+            'The remote branch has different history, usually because you reworded, amended or rebased a commit that was already pushed.\n\n' +
+            'Force-push with lease to overwrite the remote branch? It is safely refused if someone else has pushed in the meantime — in that case, pull first.'
+          }
+          confirmText="Force push"
+          danger
+          onConfirm={() => push({ ...pushRejected, force: true })}
+          onClose={dismissPushRejected}
         />
       )}
     </div>
