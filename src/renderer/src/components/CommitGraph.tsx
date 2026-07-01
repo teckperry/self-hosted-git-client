@@ -131,6 +131,7 @@ export function CommitGraph(): React.JSX.Element {
                 onMenu={(e) =>
                   cm.open(e, stash ? buildStashMenu(stash, setModal) : buildMenu(commit, setModal))
                 }
+                onRefMenu={(e, ref) => cm.open(e, buildRefMenu(ref, currentBranch, setModal))}
               />
             </React.Fragment>
           )
@@ -197,7 +198,8 @@ function CommitRow({
   selected,
   innerRef,
   onClick,
-  onMenu
+  onMenu,
+  onRefMenu
 }: {
   row: GraphRow
   commit: Commit
@@ -207,6 +209,7 @@ function CommitRow({
   innerRef?: (el: HTMLDivElement | null) => void
   onClick: () => void
   onMenu: (e: React.MouseEvent) => void
+  onRefMenu: (e: React.MouseEvent, ref: CommitRef) => void
 }): React.JSX.Element {
   const isStash = commit.refs.some((r) => r.type === 'stash')
 
@@ -320,6 +323,7 @@ function CommitRow({
             refObj={ref}
             laneColor={row.color}
             isCurrent={ref.type === 'head' && ref.name === currentBranch}
+            onMenu={onRefMenu}
           />
         ))}
       </div>
@@ -359,15 +363,26 @@ function CommitRow({
 function RefBadge({
   refObj,
   laneColor,
-  isCurrent = false
+  isCurrent = false,
+  onMenu
 }: {
   refObj: CommitRef
   laneColor: string
   /** true for the head ref of the branch we're currently on */
   isCurrent?: boolean
+  /** right-click handler for branch/tag refs (opens a ref-specific menu) */
+  onMenu?: (e: React.MouseEvent, ref: CommitRef) => void
 }): React.JSX.Element | null {
   const base =
     'px-1.5 h-[18px] inline-flex items-center gap-1 rounded text-[10px] font-semibold shrink-0 max-w-[150px]'
+  // Right-click on a branch/tag label opens a menu for that ref, not the commit.
+  const menuHandler = onMenu
+    ? (e: React.MouseEvent): void => {
+        e.preventDefault()
+        e.stopPropagation()
+        onMenu(e, refObj)
+      }
+    : undefined
 
   // HEAD — the "you are here" marker; always the boldest, solid accent chip.
   if (refObj.type === 'HEAD') {
@@ -393,6 +408,7 @@ function RefBadge({
         name={refObj.name}
         className="text-app-warning border-app-warning/40"
         collapsedBg="bg-app-warning/20"
+        onContextMenu={menuHandler}
       />
     )
   }
@@ -406,6 +422,7 @@ function RefBadge({
       icon={<Icon size={10} className="shrink-0" />}
       name={refObj.name}
       onActivate={() => useStore.getState().checkoutBranch(refObj.name, isRemote)}
+      onContextMenu={menuHandler}
       style={
         isCurrent
           ? { color: laneColor, borderColor: laneColor, boxShadow: `0 0 8px ${hexA(laneColor, 0.55)}` }
@@ -429,7 +446,8 @@ function ExpandableBadge({
   style,
   collapsedBg = '',
   collapsedBgStyle,
-  onActivate
+  onActivate,
+  onContextMenu
 }: {
   icon: React.ReactNode
   name: string
@@ -443,6 +461,8 @@ function ExpandableBadge({
   collapsedBgStyle?: React.CSSProperties
   /** double-click action (e.g. checkout the branch) */
   onActivate?: () => void
+  /** right-click handler (opens a ref-specific menu) */
+  onContextMenu?: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   const chip =
     'px-1.5 h-[18px] inline-flex items-center gap-1 rounded border text-[10px] font-semibold'
@@ -457,6 +477,7 @@ function ExpandableBadge({
             }
           : undefined
       }
+      onContextMenu={onContextMenu}
     >
       {/* collapsed, in-flow — reserves the footprint */}
       <span className={`${chip} ${className} ${collapsedBg} max-w-[150px]`} style={{ ...style, ...collapsedBgStyle }}>
@@ -474,6 +495,77 @@ function ExpandableBadge({
       </span>
     </span>
   )
+}
+
+/** Context menu for a branch/tag label — actions target the ref, not the commit. */
+function buildRefMenu(
+  ref: CommitRef,
+  currentBranch: string | null,
+  setModal: (n: React.ReactNode) => void
+): MenuItem[] {
+  const store = useStore.getState
+  const close = (): void => setModal(null)
+
+  if (ref.type === 'tag') {
+    return [
+      { label: 'Checkout (detached)', onClick: () => store().checkoutBranch(ref.name, false) },
+      { label: 'Copy tag name', onClick: () => navigator.clipboard.writeText(ref.name) },
+      { label: '', separator: true, onClick: () => {} },
+      {
+        label: 'Delete tag',
+        danger: true,
+        onClick: () =>
+          setModal(
+            <ConfirmModal
+              title="Delete tag"
+              message={`Delete the tag "${ref.name}"?`}
+              danger
+              confirmText="Delete"
+              onConfirm={() => store().deleteTag(ref.name)}
+              onClose={close}
+            />
+          )
+      }
+    ]
+  }
+
+  // Local (head) or remote branch.
+  const isRemote = ref.type === 'remote'
+  const isCurrent = ref.type === 'head' && ref.name === currentBranch
+  const items: MenuItem[] = [
+    {
+      label: isRemote ? 'Checkout (create local branch)' : 'Checkout',
+      disabled: isCurrent,
+      onClick: () => store().checkoutBranch(ref.name, isRemote)
+    },
+    {
+      label: 'Merge into current branch',
+      disabled: isCurrent,
+      onClick: () => store().mergeBranch(ref.name)
+    },
+    { label: '', separator: true, onClick: () => {} },
+    { label: 'Copy name', onClick: () => navigator.clipboard.writeText(ref.name) }
+  ]
+  if (!isRemote) {
+    items.push({ label: '', separator: true, onClick: () => {} })
+    items.push({
+      label: 'Delete branch',
+      danger: true,
+      disabled: isCurrent,
+      onClick: () =>
+        setModal(
+          <ConfirmModal
+            title="Delete branch"
+            message={`Delete the branch "${ref.name}"?`}
+            danger
+            confirmText="Delete"
+            onConfirm={() => store().deleteBranch(ref.name, false)}
+            onClose={close}
+          />
+        )
+    })
+  }
+  return items
 }
 
 function buildStashMenu(stash: Stash, setModal: (n: React.ReactNode) => void): MenuItem[] {

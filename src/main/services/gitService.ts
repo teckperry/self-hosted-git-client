@@ -503,6 +503,10 @@ export const gitService = {
     await git(repoPath).raw(args)
   },
 
+  async deleteTag(repoPath: string, name: string): Promise<void> {
+    await git(repoPath).raw(['tag', '-d', name])
+  },
+
   async stashSave(repoPath: string, message: string): Promise<void> {
     const args = ['stash', 'push', '--include-untracked']
     if (message) args.push('-m', message)

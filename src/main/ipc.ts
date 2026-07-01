@@ -122,6 +122,7 @@ export function registerIpcHandlers(): void {
   handle(Channels.createTag, (path: string, name: string, hash?: string) =>
     gitService.createTag(path, name, hash)
   )
+  handle(Channels.deleteTag, (path: string, name: string) => gitService.deleteTag(path, name))
 
   handle(Channels.stashSave, (path: string, message: string) =>
     gitService.stashSave(path, message)
