@@ -84,6 +84,7 @@ const api = {
   checkoutCommit: (path: string, hash: string) => invoke<void>(Channels.checkoutCommit, path, hash),
   rewordHead: (path: string, message: string) =>
     invoke<void>(Channels.rewordHead, path, message),
+  remoteWebUrl: (path: string) => invoke<string | null>(Channels.remoteWebUrl, path),
   resetTo: (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),

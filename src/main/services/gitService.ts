@@ -61,6 +61,28 @@ function parseRefs(raw: string, remoteNames: Set<string>): CommitRef[] {
   return refs
 }
 
+/**
+ * Turn a git remote URL into a browsable https base URL, or null if it can't be
+ * mapped. Handles scp-like (git@host:owner/repo.git), ssh:// and git:// forms,
+ * strips any embedded credentials and the trailing ".git".
+ */
+export function toWebUrl(remote: string): string | null {
+  let u = remote.trim()
+  if (!u) return null
+  const scp = u.match(/^[^@]+@([^:/]+):(.+)$/) // git@host:owner/repo(.git)
+  if (scp) {
+    u = `https://${scp[1]}/${scp[2]}`
+  } else if (u.startsWith('ssh://')) {
+    u = 'https://' + u.slice('ssh://'.length)
+  } else if (u.startsWith('git://')) {
+    u = 'https://' + u.slice('git://'.length)
+  }
+  if (!/^https?:\/\//.test(u)) return null
+  u = u.replace(/:\/\/[^/@]+@/, '://') // drop user[:pass]@ credentials
+  u = u.replace(/\.git$/, '').replace(/\/+$/, '')
+  return u
+}
+
 function kindFromStatus(index: string, workingDir: string): FileChange['kind'] {
   if (index === '?' || workingDir === '?') return 'untracked'
   const c = index !== ' ' && index !== '' ? index : workingDir
@@ -342,6 +364,14 @@ export const gitService = {
       fetch: r.refs.fetch || '',
       push: r.refs.push || r.refs.fetch || ''
     }))
+  },
+
+  /** Browsable https base URL of `origin` (or the first remote), or null. */
+  async remoteWebUrl(repoPath: string): Promise<string | null> {
+    const remotes = await git(repoPath).getRemotes(true)
+    if (remotes.length === 0) return null
+    const chosen = remotes.find((r) => r.name === 'origin') ?? remotes[0]
+    return toWebUrl(chosen.refs.fetch || chosen.refs.push || '')
   },
 
   async getStashes(repoPath: string): Promise<Stash[]> {

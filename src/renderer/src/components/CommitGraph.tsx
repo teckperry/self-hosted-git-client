@@ -653,6 +653,7 @@ function buildBranchMenu(
       onClick: () => store().mergeBranch(primary)
     },
     { label: '', separator: true, onClick: () => {} },
+    { label: 'Open in browser', onClick: () => store().openOnRemote('branch', group.base) },
     { label: 'Copy name', onClick: () => navigator.clipboard.writeText(group.base) }
   ]
   if (local) {
@@ -832,6 +833,7 @@ function buildMenu(commit: Commit, setModal: (n: React.ReactNode) => void): Menu
     { label: 'Revert (create inverse commit)', onClick: () => store().revertCommit(commit.hash) },
     { label: 'Cherry-pick onto current branch', onClick: () => store().cherryPick(commit.hash) },
     { label: '', separator: true, onClick: () => {} },
+    { label: 'Open in browser', onClick: () => store().openOnRemote('commit', commit.hash) },
     {
       label: 'Copy full SHA',
       onClick: () => navigator.clipboard.writeText(commit.hash)
