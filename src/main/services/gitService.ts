@@ -24,20 +24,6 @@ const RECORD = '\x1e'
 // with the changes highlighted, not just the changed hunks.
 const FULL_CONTEXT = '-U100000'
 
-/**
- * Build a child-process environment from the current one plus overrides, with
- * the variables simple-git refuses for safety removed. simple-git blocks a
- * PAGER/GIT_PAGER coming through `.env()` (a hostile pager could run arbitrary
- * commands: "Use of PAGER is not permitted without enabling allowUnsafePager"),
- * so we strip them — we never need a pager for the commands we run anyway.
- */
-function childEnv(overrides: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = { ...process.env } as Record<string, string>
-  delete env.PAGER
-  delete env.GIT_PAGER
-  return { ...env, ...overrides }
-}
-
 /** Caches one SimpleGit instance per repository path. */
 const cache = new Map<string, SimpleGit>()
 
@@ -488,30 +474,14 @@ export const gitService = {
   },
 
   /**
-   * Reword the message of the current HEAD commit without touching the working
-   * tree or the index. Rebuilds the commit from its own tree/parents with
-   * `git commit-tree`, preserving the original author (name/email/date), then
-   * moves the current branch to the new commit. Works for merge commits too.
+   * Reword the message of the current HEAD commit, message-only. `--amend`
+   * keeps the original author (name/email/date); `--only` with an empty
+   * pathspec keeps the commit's tree, so any staged changes are left untouched
+   * (not folded into the commit). `--allow-empty` covers an empty HEAD commit.
+   * No env overrides are needed, so simple-git's PAGER/EDITOR guards don't apply.
    */
   async rewordHead(repoPath: string, message: string): Promise<void> {
-    const g = git(repoPath)
-    const tree = (await g.raw(['rev-parse', 'HEAD^{tree}'])).trim()
-    const oldHead = (await g.raw(['rev-parse', 'HEAD'])).trim()
-    const parentsRaw = (await g.raw(['rev-list', '--parents', '-n', '1', 'HEAD'])).trim()
-    const parents = parentsRaw.split(/\s+/).slice(1) // drop the commit's own hash
-    const an = (await g.raw(['log', '-1', '--format=%an'])).trim()
-    const ae = (await g.raw(['log', '-1', '--format=%ae'])).trim()
-    const ad = (await g.raw(['log', '-1', '--format=%aI'])).trim()
-    const args = ['commit-tree', tree]
-    for (const p of parents) args.push('-p', p)
-    args.push('-m', message)
-    // A fresh instance so the author-preserving env doesn't leak into the
-    // cached SimpleGit used by every other operation.
-    const fresh = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).env(
-      childEnv({ GIT_AUTHOR_NAME: an, GIT_AUTHOR_EMAIL: ae, GIT_AUTHOR_DATE: ad })
-    )
-    const newHash = (await fresh.raw(args)).trim()
-    await g.raw(['update-ref', 'HEAD', newHash, oldHead])
+    await git(repoPath).raw(['commit', '--amend', '--only', '--allow-empty', '-m', message, '--'])
   },
 
   async push(repoPath: string, opts: PushOptions): Promise<string> {

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useCallback } from 'react'
+import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { GitCommit, Copy, CloudOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { fullDate, initials, colorFromString } from '../lib/format'
@@ -8,12 +8,15 @@ import type { DiffFile } from '@shared/types'
 export function DetailPanel(): React.JSX.Element {
   const selection = useStore((s) => s.selection)
   const commits = useStore((s) => s.commits)
+  const status = useStore((s) => s.status)
   const commitDiff = useStore((s) => s.commitDiff)
   const selectedFilePath = useStore((s) => s.selectedFilePath)
   const selectCommitFile = useStore((s) => s.selectCommitFile)
   const loadingDiff = useStore((s) => s.loadingDiff)
   const setFocusZone = useStore((s) => s.setFocusZone)
   const openEditor = useStore((s) => s.openEditor)
+  const rewordHead = useStore((s) => s.rewordHead)
+  const busy = useStore((s) => s.busy)
 
   const selectedRef = useRef<HTMLElement | null>(null)
   const setSelRef = useCallback((el: HTMLElement | null) => {
@@ -27,6 +30,30 @@ export function DetailPanel(): React.JSX.Element {
     () => (selection?.type === 'commit' ? commits.find((c) => c.hash === selection.hash) : undefined),
     [selection, commits]
   )
+
+  // The commit at HEAD can be reworded in place (git amend, message-only).
+  const isHead =
+    !!commit &&
+    commit.refs.some((r) => r.type === 'HEAD' || (r.type === 'head' && r.name === status?.current))
+  const fullMessage = commit ? (commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject) : ''
+
+  const [draft, setDraft] = useState(fullMessage)
+  // Reset the editable draft whenever the selected commit (or its message) changes.
+  useEffect(() => {
+    setDraft(fullMessage)
+  }, [commit?.hash, fullMessage])
+
+  const dirty = isHead && draft.trim() !== '' && draft.trim() !== fullMessage.trim()
+  const saveMessage = async (): Promise<void> => {
+    if (!dirty) return
+    await rewordHead(draft.trim())
+    // Amend changes the commit hash, so re-select the new HEAD to keep it shown.
+    const st = useStore.getState()
+    const head = st.commits.find((c) =>
+      c.refs.some((r) => r.type === 'HEAD' || (r.type === 'head' && r.name === st.status?.current))
+    )
+    if (head) void st.selectCommit(head.hash)
+  }
 
   if (!commit) {
     return (
@@ -51,7 +78,9 @@ export function DetailPanel(): React.JSX.Element {
             {initials(commit.author)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-app-text font-semibold leading-snug selectable">{commit.subject}</div>
+            {!isHead && (
+              <div className="text-app-text font-semibold leading-snug selectable">{commit.subject}</div>
+            )}
             <div className="text-app-muted text-[12px] mt-0.5">
               <span className="text-app-text">{commit.author}</span>{' '}
               <span className="selectable">{`<${commit.authorEmail}>`}</span> · {fullDate(commit.date)}
@@ -73,10 +102,51 @@ export function DetailPanel(): React.JSX.Element {
             {commit.shortHash} <Copy size={12} />
           </button>
         </div>
-        {commit.body && (
-          <pre className="mt-2 max-h-32 overflow-y-auto text-[12px] text-app-text/90 whitespace-pre-wrap break-words selectable font-sans">
-            {commit.body}
-          </pre>
+        {isHead ? (
+          <div className="mt-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  void saveMessage()
+                } else if (e.key === 'Escape' && dirty) {
+                  e.preventDefault()
+                  setDraft(fullMessage)
+                }
+                e.stopPropagation() // don't trigger the app's global key handling
+              }}
+              spellCheck={false}
+              placeholder="Commit message"
+              className="w-full min-h-[3.5rem] max-h-48 overflow-y-auto resize-y px-2 py-1.5 rounded-md bg-app-bg border border-app-border text-[12px] text-app-text/90 leading-relaxed whitespace-pre-wrap break-words outline-none focus:border-app-accent transition-colors selectable"
+            />
+            {dirty && (
+              <div className="flex items-center justify-end gap-2 mt-1.5">
+                <span className="text-[11px] text-app-muted mr-auto">⌘/Ctrl+Enter to save · Esc to revert</span>
+                <button
+                  onClick={() => setDraft(fullMessage)}
+                  disabled={busy}
+                  className="px-2 py-0.5 rounded border border-app-border text-[12px] text-app-muted hover:text-app-text hover:bg-app-hover disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void saveMessage()}
+                  disabled={busy}
+                  className="px-2.5 py-0.5 rounded bg-app-accent text-app-accent-fg text-[12px] font-medium disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          commit.body && (
+            <pre className="mt-2 max-h-32 overflow-y-auto text-[12px] text-app-text/90 whitespace-pre-wrap break-words selectable font-sans">
+              {commit.body}
+            </pre>
+          )
         )}
       </div>
 
