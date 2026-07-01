@@ -64,6 +64,7 @@ const api = {
   push: (path: string, opts: PushOptions) => invoke<string>(Channels.push, path, opts),
   pull: (path: string, remote?: string, branch?: string) =>
     invoke<string>(Channels.pull, path, remote, branch),
+  pullFastForward: (path: string) => invoke<void>(Channels.pullFastForward, path),
   fetch: (path: string) => invoke<void>(Channels.fetch, path),
 
   checkoutBranch: (path: string, name: string, isRemote: boolean) =>
