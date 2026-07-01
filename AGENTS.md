@@ -20,6 +20,9 @@ state with **Zustand**. The Git backend shells out to the system `git` through
   scope, e.g. `feat(graph): …`.
 - **Commit and push only when explicitly asked.** Never do it on your own
   initiative.
+- **Always work on a branch + pull request — never commit to `main` directly.**
+  Create a branch named `tckp/<topic>` (`tckp` = teckperry) for every change and
+  open a PR to `main`. `main` moves only through merged PRs (and release tags).
 - **The build must be green before committing.** Run `npm run build` (it runs
   `typecheck` + the electron-vite build) and fix any error first.
 - **Never hardcode colors or identity.** They live in one place (see Branding).
@@ -94,14 +97,19 @@ Business logic goes in a `src/main/services/*` module, not inline in `ipc.ts`.
 
 Follow this loop for each task:
 
-1. **Understand** — read the relevant files before changing anything.
-2. **Implement** — follow the rules above; keep each change focused.
-3. **Verify** — `npm run build` must pass; offer to run the app for visual
+1. **Branch** — from an up-to-date `main`, create `tckp/<topic>` (`tckp` =
+   teckperry). Never work on `main`.
+2. **Understand** — read the relevant files before changing anything.
+3. **Implement** — follow the rules above; keep each change focused.
+4. **Verify** — `npm run build` must pass; offer to run the app for visual
    changes.
-4. **Commit** — only when asked; one cohesive change per commit, Conventional
+5. **Commit** — only when asked; one cohesive change per commit, Conventional
    Commits.
-5. **Push** — only when asked.
-6. **Ask: "Do you want to publish a new tag?"**
+6. **Push & PR** — only when asked: push the `tckp/<topic>` branch and open a
+   pull request to `main` (`gh pr create`). Do not push to `main` directly; the
+   user reviews/merges the PR.
+7. **Ask: "Do you want to publish a new tag?"** (after the PR is merged into
+   `main`, since release tags are cut from `main`)
 
    When the user agrees, the agent prepares the release **locally** (do not rely
    solely on GitHub's auto-generated notes):
@@ -127,8 +135,9 @@ Follow this loop for each task:
 ## Releases (reference)
 
 - `.github/workflows/release.yml` builds installers on any `v*` tag: macOS
-  (universal `.dmg`/`.zip`), Windows (`.exe`), Linux (`.AppImage`/`.deb`), and
-  attaches them to a **draft** GitHub Release.
-- Builds are **unsigned**; the README documents the first-launch workarounds.
+  arm64 + Intel (`.dmg`/`.zip`), Windows (`.exe`), Linux (`.AppImage`/`.deb`),
+  and attaches them to a **published** GitHub Release automatically.
+- Builds are **unsigned** (macOS is ad-hoc signed via `build/afterPack.js` so it
+  isn't blocked as "damaged"); the README documents the first-launch steps.
 - The in-app updater notifies users when a newer **published** (non-draft)
   release exists.
