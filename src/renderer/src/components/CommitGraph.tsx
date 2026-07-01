@@ -43,6 +43,7 @@ export function CommitGraph(): React.JSX.Element {
   const commits = useStore((s) => s.commits)
   const status = useStore((s) => s.status)
   const detached = useStore((s) => s.repo?.isDetached ?? false)
+  const searchMatches = useStore((s) => s.searchMatches)
   const stashes = useStore((s) => s.stashes)
   const selection = useStore((s) => s.selection)
   const selectCommit = useStore((s) => s.selectCommit)
@@ -135,6 +136,7 @@ export function CommitGraph(): React.JSX.Element {
                 graphWidth={graphWidth}
                 currentBranch={currentBranch}
                 detached={detached}
+                dimmed={!!searchMatches && !searchMatches.has(row.hash)}
                 selected={selected}
                 innerRef={selected ? setSelRef : undefined}
                 onClick={() => {
@@ -210,6 +212,7 @@ function CommitRow({
   graphWidth,
   currentBranch,
   detached,
+  dimmed,
   selected,
   innerRef,
   onClick,
@@ -222,6 +225,7 @@ function CommitRow({
   graphWidth: number
   currentBranch: string | null
   detached: boolean
+  dimmed: boolean
   selected: boolean
   innerRef?: (el: HTMLDivElement | null) => void
   onClick: () => void
@@ -259,7 +263,9 @@ function CommitRow({
       ref={setRefs}
       onClick={onClick}
       onContextMenu={onMenu}
-      className={`flex items-center min-h-[34px] border-b border-app-border/50 cursor-pointer ${
+      className={`flex items-center min-h-[34px] border-b border-app-border/50 cursor-pointer transition-opacity ${
+        dimmed ? 'opacity-25' : ''
+      } ${
         selected
           ? 'bg-app-accent/15'
           : isStash

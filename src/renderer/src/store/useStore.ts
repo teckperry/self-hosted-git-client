@@ -16,6 +16,9 @@ import type {
   UpdateInfo
 } from '@shared/types'
 
+/** Debounce handle for the git-backed part of the search (filenames + code). */
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
 export type Selection =
   | { type: 'commit'; hash: string }
   | { type: 'wip' }
@@ -47,6 +50,13 @@ interface AppState {
   /** When true, the full-page diff editor replaces the commit graph. */
   editorOpen: boolean
   diffViewMode: DiffViewMode
+  // search (Cmd/Ctrl+F): highlight matching commits, dim the rest
+  searchOpen: boolean
+  searchQuery: string
+  /** hashes of matching commits, or null when no search is active */
+  searchMatches: Set<string> | null
+  /** true while the git-backed (file-name) pass is still running */
+  searchLoading: boolean
 
   // repo data
   commits: Commit[]
@@ -74,6 +84,9 @@ interface AppState {
   navigateCommits: (dir: -1 | 1) => void
   navigateFiles: (dir: -1 | 1) => void
   showToast: (t: Toast | null) => void
+  openSearch: () => void
+  closeSearch: () => void
+  setSearchQuery: (q: string) => void
   checkForUpdate: () => Promise<void>
   downloadUpdate: () => Promise<void>
   dismissUpdate: () => void
@@ -143,6 +156,10 @@ export const useStore = create<AppState>()((set, get) => ({
   diffViewMode: 'inline',
   update: null,
   updateDownloading: false,
+  searchOpen: false,
+  searchQuery: '',
+  searchMatches: null,
+  searchLoading: false,
 
   commits: [],
   status: null,
@@ -220,6 +237,58 @@ export const useStore = create<AppState>()((set, get) => ({
         if (get().toast === toast) set({ toast: null })
       }, 3500)
     }
+  },
+
+  openSearch: () => set({ searchOpen: true }),
+
+  closeSearch: () => {
+    if (searchDebounce) clearTimeout(searchDebounce)
+    set({ searchOpen: false, searchQuery: '', searchMatches: null, searchLoading: false })
+  },
+
+  setSearchQuery: (q) => {
+    set({ searchQuery: q })
+    const query = q.trim()
+    if (searchDebounce) clearTimeout(searchDebounce)
+    if (!query) {
+      set({ searchMatches: null, searchLoading: false })
+      return
+    }
+    // Instant client-side pass: message, author, hash, branch/tag names.
+    const ql = query.toLowerCase()
+    const matches = new Set<string>()
+    for (const c of get().commits) {
+      if (
+        c.subject.toLowerCase().includes(ql) ||
+        c.body.toLowerCase().includes(ql) ||
+        c.author.toLowerCase().includes(ql) ||
+        c.authorEmail.toLowerCase().includes(ql) ||
+        c.hash.toLowerCase().includes(ql) ||
+        c.shortHash.toLowerCase().includes(ql) ||
+        c.refs.some((r) => r.name.toLowerCase().includes(ql))
+      ) {
+        matches.add(c.hash)
+      }
+    }
+    // Client matches are ready, but the git file-name pass is still pending.
+    set({ searchMatches: matches, searchLoading: true })
+    // Debounced git-backed pass: changed file names.
+    searchDebounce = setTimeout(async () => {
+      const repo = get().repo
+      if (!repo || get().searchQuery.trim() !== query) return
+      try {
+        const extra = await call(api.searchCommits(repo.path, query))
+        if (get().searchQuery.trim() !== query) return
+        const merged = new Set(get().searchMatches ?? [])
+        for (const h of extra) merged.add(h)
+        set({ searchMatches: merged })
+      } catch {
+        /* ignore search errors */
+      } finally {
+        // Clear the spinner only if this is still the active query.
+        if (get().searchQuery.trim() === query) set({ searchLoading: false })
+      }
+    }, 300)
   },
 
   checkForUpdate: async () => {

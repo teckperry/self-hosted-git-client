@@ -53,6 +53,8 @@ const api = {
     invoke<DiffFile[]>(Channels.getCommitDiff, path, hash),
   getWorkingDiff: (path: string, file: string, opts: { staged: boolean; untracked: boolean }) =>
     invoke<DiffFile[]>(Channels.getWorkingDiff, path, file, opts),
+  searchCommits: (path: string, query: string) =>
+    invoke<string[]>(Channels.searchCommits, path, query),
 
   // mutations
   stage: (path: string, files: string[]) => invoke<void>(Channels.stage, path, files),

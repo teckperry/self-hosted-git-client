@@ -27,6 +27,7 @@ export const Channels = {
   getTags: 'git:getTags',
   getCommitDiff: 'git:getCommitDiff',
   getWorkingDiff: 'git:getWorkingDiff',
+  searchCommits: 'git:searchCommits',
 
   // writes / actions
   stage: 'git:stage',
