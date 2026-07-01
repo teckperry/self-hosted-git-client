@@ -7,6 +7,7 @@ export function PromptModal({
   placeholder,
   initialValue = '',
   confirmText = 'Confirm',
+  note,
   onConfirm,
   onClose
 }: {
@@ -15,6 +16,8 @@ export function PromptModal({
   placeholder?: string
   initialValue?: string
   confirmText?: string
+  /** optional explanatory text shown under the input */
+  note?: React.ReactNode
   onConfirm: (value: string) => void
   onClose: () => void
 }): React.JSX.Element {
@@ -34,6 +37,9 @@ export function PromptModal({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}
       />
+      {note && (
+        <div className="mt-2 text-[11px] text-app-muted leading-relaxed">{note}</div>
+      )}
       <div className="flex justify-end gap-2 mt-4">
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="primary" onClick={submit} disabled={!value.trim()}>

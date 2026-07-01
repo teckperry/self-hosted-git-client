@@ -660,9 +660,21 @@ function buildBranchMenu(
         setModal(
           <PromptModal
             title="Rename branch"
-            label={`New name for "${local}" (also renamed on the remote if it's tracked)`}
+            label={`New name for "${local}"`}
             initialValue={local}
             confirmText="Rename"
+            note={
+              <>
+                Renames the branch <span className="text-app-text">locally only</span>. If it&apos;s
+                already on the remote, finish the rename by hand:
+                <br />
+                1. <span className="text-app-text">Push</span> the renamed branch (sets the new
+                upstream).
+                <br />
+                2. Delete the old branch on the remote (right-click it →{' '}
+                <span className="text-app-text">Delete remote branch</span>).
+              </>
+            }
             onConfirm={(name) => {
               const next = name.trim()
               if (next && next !== local) store().renameBranch(local, next)
