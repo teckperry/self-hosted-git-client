@@ -20,8 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Separate arm64/x64 (not --universal): the ad-hoc afterPack signing
+          # gives the two arch builds different signatures, which breaks the
+          # universal merge (identical-SHA requirement).
           - os: macos-latest
-            eb: --mac --universal
+            eb: --mac --arm64 --x64
             artifacts: |
               dist/*.dmg
               dist/*.zip
