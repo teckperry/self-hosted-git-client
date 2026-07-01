@@ -117,8 +117,12 @@ Follow this loop for each task:
      the in-app updater both read `package.json`. Commit it as
      `chore(release): vX.Y.Z`.
    - Create and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-   - The GitHub Action builds the installers and opens a **draft** Release; use
-     the locally-built report as the release notes, then publish.
+   - **A tag must always produce a published GitHub Release with the OS
+     installers attached.** The GitHub Action builds them and publishes the
+     Release automatically; a bare tag only exposes source-code zips, which is
+     not a real release. After the run finishes, set the Release notes to the
+     locally-built report (e.g. `gh release edit vX.Y.Z --notes-file -`) and
+     confirm the `.dmg`/`.zip`/`.exe`/`.AppImage`/`.deb` are attached.
 
 ## Releases (reference)
 

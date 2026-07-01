@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A free, open and self-hosted desktop Git client",
   "main": "./out/main/index.js",
-  "author": "",
+  "author": "Teckperry <teckperry.95@gmail.com>",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
