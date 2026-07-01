@@ -105,6 +105,9 @@ export function registerIpcHandlers(): void {
   handle(Channels.deleteBranch, (path: string, name: string, force: boolean) =>
     gitService.deleteBranch(path, name, force)
   )
+  handle(Channels.deleteRemoteBranch, (path: string, remoteRef: string) =>
+    gitService.deleteRemoteBranch(path, remoteRef)
+  )
   handle(Channels.mergeBranch, (path: string, name: string) =>
     gitService.mergeBranch(path, name)
   )

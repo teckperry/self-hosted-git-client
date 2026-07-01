@@ -148,7 +148,18 @@ function BranchRow({
   const items: MenuItem[] = remote
     ? [
         { label: 'Checkout (create local branch)', onClick: () => store().checkoutBranch(branch.name, true) },
-        { label: 'Merge into current branch', onClick: () => store().mergeBranch(branch.name) }
+        { label: 'Merge into current branch', onClick: () => store().mergeBranch(branch.name) },
+        { label: '', separator: true, onClick: () => {} },
+        {
+          label: 'Delete remote branch',
+          danger: true,
+          onClick: () =>
+            setConfirm({
+              title: 'Delete remote branch',
+              message: `Delete "${branch.name}" from the remote? This runs git push --delete.`,
+              onConfirm: () => store().deleteRemoteBranch(branch.name)
+            })
+        }
       ]
     : [
         { label: 'Checkout', onClick: () => store().checkoutBranch(branch.name, false), disabled: branch.current },

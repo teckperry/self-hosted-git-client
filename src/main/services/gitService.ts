@@ -36,7 +36,7 @@ function git(repoPath: string): SimpleGit {
   return g
 }
 
-function parseRefs(raw: string): CommitRef[] {
+function parseRefs(raw: string, remoteNames: Set<string>): CommitRef[] {
   if (!raw.trim()) return []
   const refs: CommitRef[] = []
   for (const token of raw.split(',').map((t) => t.trim())) {
@@ -50,7 +50,9 @@ function parseRefs(raw: string): CommitRef[] {
       refs.push({ name: token.slice(5), type: 'tag' })
     } else if (token === 'refs/stash' || token === 'stash') {
       refs.push({ name: 'stash', type: 'stash' })
-    } else if (token.includes('/')) {
+    } else if (token.includes('/') && remoteNames.has(token.slice(0, token.indexOf('/')))) {
+      // A slash alone doesn't mean remote — local branches can be named
+      // "feature/x". It's remote only when the first segment is a real remote.
       refs.push({ name: token, type: 'remote' })
     } else {
       refs.push({ name: token, type: 'head' })
@@ -132,6 +134,16 @@ export const gitService = {
     }
     const stashSet = new Set(stashShas)
 
+    // Remote names, so a "<remote>/<branch>" ref is classified as remote while a
+    // local branch that merely contains a slash (e.g. "feature/x") stays local.
+    let remoteNames = new Set<string>()
+    try {
+      const raw = await git(repoPath).raw(['remote'])
+      remoteNames = new Set(raw.split('\n').map((s) => s.trim()).filter(Boolean))
+    } catch {
+      remoteNames = new Set()
+    }
+
     let out: string
     try {
       out = await git(repoPath).raw([
@@ -151,7 +163,7 @@ export const gitService = {
       const r = record.replace(/^\n/, '')
       if (!r.trim()) continue
       const f = r.split(FIELD)
-      const refs = parseRefs(f[8] || '')
+      const refs = parseRefs(f[8] || '', remoteNames)
       // Only the top stash carries the refs/stash decoration; tag the rest too.
       if (stashSet.has(f[0]) && !refs.some((ref) => ref.type === 'stash')) {
         refs.push({ name: 'stash', type: 'stash' })
@@ -474,6 +486,15 @@ export const gitService = {
 
   async deleteBranch(repoPath: string, name: string, force: boolean): Promise<void> {
     await git(repoPath).deleteLocalBranch(name, force)
+  },
+
+  /** Delete a branch on its remote. `remoteRef` is like "origin/feature/x". */
+  async deleteRemoteBranch(repoPath: string, remoteRef: string): Promise<void> {
+    const slash = remoteRef.indexOf('/')
+    if (slash < 0) throw new Error(`Invalid remote branch ref: ${remoteRef}`)
+    const remote = remoteRef.slice(0, slash)
+    const branch = remoteRef.slice(slash + 1)
+    await git(repoPath).raw(['push', remote, '--delete', branch])
   },
 
   async mergeBranch(repoPath: string, name: string): Promise<string> {

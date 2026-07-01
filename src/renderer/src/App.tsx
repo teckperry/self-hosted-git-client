@@ -22,6 +22,7 @@ export default function App(): React.JSX.Element {
   const loadRecent = useStore((s) => s.loadRecent)
   const restoreSession = useStore((s) => s.restoreSession)
   const checkForUpdate = useStore((s) => s.checkForUpdate)
+  const autoFetch = useStore((s) => s.autoFetch)
   const [sshOpen, setSshOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(560)
   const dragging = useRef(false)
@@ -39,6 +40,16 @@ export default function App(): React.JSX.Element {
     const id = setInterval(() => checkForUpdate(), 6 * 60 * 60 * 1000)
     return () => clearInterval(id)
   }, [checkForUpdate])
+
+  // Keep the open repo in sync with its remote: fetch shortly after opening,
+  // then every 3 minutes, so ahead/behind and the graph always reflect origin.
+  const repoPath = repo?.path
+  useEffect(() => {
+    if (!repoPath) return
+    autoFetch()
+    const id = setInterval(() => autoFetch(), 3 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [repoPath, autoFetch])
 
   // Global arrow-key navigation: ↑/↓ move within the focused list,
   // ←/→ switch focus between the commit list and the file list.
