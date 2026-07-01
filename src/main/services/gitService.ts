@@ -461,6 +461,11 @@ export const gitService = {
     return JSON.stringify(res.summary)
   },
 
+  /** Fetch + fast-forward only (fails if the branch has diverged; never merges). */
+  async pullFastForward(repoPath: string): Promise<void> {
+    await git(repoPath).raw(['pull', '--ff-only'])
+  },
+
   async fetch(repoPath: string): Promise<void> {
     await git(repoPath).fetch(['--all', '--prune'])
   },

@@ -590,11 +590,30 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   checkoutBranch: (name, isRemote) =>
-    get().run(
-      `Checking out ${name}…`,
-      () => call(api.checkoutBranch(get().repo!.path, name, isRemote)),
-      `Switched to ${name}`
-    ),
+    get()
+      .run(
+        `Checking out ${name}…`,
+        () => call(api.checkoutBranch(get().repo!.path, name, isRemote)),
+        `Switched to ${name}`
+      )
+      .then(async () => {
+        // After landing on an existing branch, fast-forward it to its upstream's
+        // latest (ff-only — never merges, so no conflicts). Silent if it can't
+        // (diverged / offline / no upstream).
+        const repo = get().repo
+        const st = get().status
+        if (!repo || !st || !st.tracking) return
+        const wasBehind = st.behind > 0
+        try {
+          await call(api.pullFastForward(repo.path))
+          await get().refreshAll()
+          if (wasBehind) {
+            get().showToast({ kind: 'success', message: `Updated ${st.current} from ${st.tracking}` })
+          }
+        } catch {
+          /* diverged / offline — leave the pull to the user */
+        }
+      }),
   createBranch: (name, checkout) =>
     get().run(
       'Creating branch…',

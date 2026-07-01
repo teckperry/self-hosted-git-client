@@ -37,6 +37,7 @@ export const Channels = {
   commit: 'git:commit',
   push: 'git:push',
   pull: 'git:pull',
+  pullFastForward: 'git:pullFastForward',
   fetch: 'git:fetch',
 
   checkoutBranch: 'git:checkoutBranch',

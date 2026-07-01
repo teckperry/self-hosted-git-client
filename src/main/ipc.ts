@@ -94,6 +94,7 @@ export function registerIpcHandlers(): void {
   handle(Channels.pull, (path: string, remote?: string, branch?: string) =>
     gitService.pull(path, remote, branch)
   )
+  handle(Channels.pullFastForward, (path: string) => gitService.pullFastForward(path))
   handle(Channels.fetch, (path: string) => gitService.fetch(path))
 
   handle(Channels.checkoutBranch, (path: string, name: string, isRemote: boolean) =>
