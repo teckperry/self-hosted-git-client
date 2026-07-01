@@ -42,6 +42,7 @@ function contrastText(hex: string): string {
 export function CommitGraph(): React.JSX.Element {
   const commits = useStore((s) => s.commits)
   const status = useStore((s) => s.status)
+  const detached = useStore((s) => s.repo?.isDetached ?? false)
   const stashes = useStore((s) => s.stashes)
   const selection = useStore((s) => s.selection)
   const selectCommit = useStore((s) => s.selectCommit)
@@ -133,6 +134,7 @@ export function CommitGraph(): React.JSX.Element {
                 commit={commit}
                 graphWidth={graphWidth}
                 currentBranch={currentBranch}
+                detached={detached}
                 selected={selected}
                 innerRef={selected ? setSelRef : undefined}
                 onClick={() => {
@@ -207,6 +209,7 @@ function CommitRow({
   commit,
   graphWidth,
   currentBranch,
+  detached,
   selected,
   innerRef,
   onClick,
@@ -218,6 +221,7 @@ function CommitRow({
   commit: Commit
   graphWidth: number
   currentBranch: string | null
+  detached: boolean
   selected: boolean
   innerRef?: (el: HTMLDivElement | null) => void
   onClick: () => void
@@ -330,6 +334,11 @@ function CommitRow({
       <div style={{ width: REFS_W }} className="shrink-0 flex items-center gap-1 py-1 pl-1 pr-2">
         <RefLabels
           labels={[
+            // In detached HEAD there's no current branch to mark "you are here",
+            // so show an explicit HEAD chip on the checked-out commit.
+            ...(detached && commit.refs.some((r) => r.type === 'HEAD')
+              ? [<HeadBadge key="head" />]
+              : []),
             ...groupBranchRefs(commit.refs).map((g) => (
               <BranchBadge
                 key={`b:${g.base}`}
@@ -506,6 +515,18 @@ function StashBadge(): React.JSX.Element {
   return (
     <span className="px-2 h-[20px] inline-flex items-center gap-1 rounded text-[11px] font-bold shrink-0 bg-app-warning text-app-bg uppercase tracking-wide">
       <Archive size={12} className="shrink-0" /> Stash
+    </span>
+  )
+}
+
+/** "You are here" marker shown only in detached HEAD (no current branch). */
+function HeadBadge(): React.JSX.Element {
+  return (
+    <span
+      title="Detached HEAD — not on a branch"
+      className="px-2 h-[20px] inline-flex items-center rounded text-[11px] font-bold shrink-0 bg-app-accent text-app-accent-fg uppercase tracking-wide"
+    >
+      HEAD
     </span>
   )
 }
