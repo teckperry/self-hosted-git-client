@@ -20,6 +20,9 @@ import type {
 
 const FIELD = '\x1f'
 const RECORD = '\x1e'
+// Emit whole files (all context) in diffs so the editor shows the full code
+// with the changes highlighted, not just the changed hunks.
+const FULL_CONTEXT = '-U100000'
 
 /** Caches one SimpleGit instance per repository path. */
 const cache = new Map<string, SimpleGit>()
@@ -360,11 +363,12 @@ export const gitService = {
         '--root',
         '--no-color',
         '-M',
+        FULL_CONTEXT,
         hash
       ])
     } else {
       // diff against first parent (handles normal & merge commits sensibly)
-      patch = await g.raw(['diff', '--no-color', '-M', `${parents[0]}`, hash])
+      patch = await g.raw(['diff', '--no-color', '-M', FULL_CONTEXT, `${parents[0]}`, hash])
     }
     return parseUnifiedDiff(patch)
   },
@@ -383,7 +387,7 @@ export const gitService = {
         return []
       }
     }
-    const args = ['diff', '--no-color', '-M']
+    const args = ['diff', '--no-color', '-M', FULL_CONTEXT]
     if (opts.staged) args.push('--cached')
     args.push('--', filePath)
     const patch = await git(repoPath).raw(args)

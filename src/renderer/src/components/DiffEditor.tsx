@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useStore, type DiffViewMode } from '../store/useStore'
 import { DiffViewer } from './DiffViewer'
+import { SplitDiffView } from './SplitDiffView'
+import { Minimap } from './Minimap'
 import { FileStatusBadge } from './FileStatusBadge'
 import { IconButton } from './ui'
 import type { DiffFile } from '@shared/types'
@@ -32,6 +34,15 @@ export function DiffEditor(): React.JSX.Element {
         ? workingDiff[0] ?? null
         : null
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const activePath = activeFile ? activeFile.newPath || activeFile.oldPath : null
+  const showMinimap = !!activeFile && !activeFile.isBinary && activeFile.hunks.length > 0
+
+  // Reset scroll to the top when switching file or view mode.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [activePath, diffViewMode])
+
   return (
     <div className="h-full flex flex-col bg-app-bg">
       {/* toolbar */}
@@ -58,9 +69,22 @@ export function DiffEditor(): React.JSX.Element {
         </IconButton>
       </div>
 
-      {/* diff */}
-      <div className="flex-1 min-h-0">
-        <DiffViewer file={activeFile} loading={loadingDiff} mode={diffViewMode} />
+      {/* diff + minimap */}
+      <div className="flex-1 min-h-0 flex">
+        {!showMinimap || !activeFile ? (
+          <div className="flex-1 min-w-0">
+            <DiffViewer file={activeFile} loading={loadingDiff} />
+          </div>
+        ) : diffViewMode === 'split' ? (
+          <SplitDiffView file={activeFile} primaryRef={scrollRef} />
+        ) : (
+          <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto bg-app-bg">
+            <DiffViewer file={activeFile} />
+          </div>
+        )}
+        {showMinimap && activeFile && (
+          <Minimap key={`${diffViewMode}:${activePath ?? ''}`} file={activeFile} scrollRef={scrollRef} />
+        )}
       </div>
     </div>
   )
