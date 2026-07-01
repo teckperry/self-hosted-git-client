@@ -133,6 +133,7 @@ interface AppState {
   deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
   checkoutCommit: (hash: string) => Promise<void>
+  rewordHead: (message: string) => Promise<void>
   resetTo: (hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
   revertCommit: (hash: string) => Promise<void>
   cherryPick: (hash: string) => Promise<void>
@@ -717,6 +718,8 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run('Merging…', () => call(api.mergeBranch(get().repo!.path, name)), `Merged ${name}`),
   checkoutCommit: (hash) =>
     get().run('Checking out commit…', () => call(api.checkoutCommit(get().repo!.path, hash))),
+  rewordHead: (message) =>
+    get().run('Rewording commit…', () => call(api.rewordHead(get().repo!.path, message)), 'Commit message updated'),
   resetTo: (hash, mode) =>
     get().run(`Reset --${mode}…`, () => call(api.resetTo(get().repo!.path, hash, mode)), 'Reset complete'),
   revertCommit: (hash) =>

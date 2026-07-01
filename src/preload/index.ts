@@ -80,6 +80,8 @@ const api = {
   mergeBranch: (path: string, name: string) => invoke<string>(Channels.mergeBranch, path, name),
 
   checkoutCommit: (path: string, hash: string) => invoke<void>(Channels.checkoutCommit, path, hash),
+  rewordHead: (path: string, message: string) =>
+    invoke<void>(Channels.rewordHead, path, message),
   resetTo: (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),

@@ -48,6 +48,7 @@ export const Channels = {
   mergeBranch: 'git:mergeBranch',
 
   checkoutCommit: 'git:checkoutCommit',
+  rewordHead: 'git:rewordHead',
   resetTo: 'git:resetTo',
   revertCommit: 'git:revertCommit',
   cherryPick: 'git:cherryPick',

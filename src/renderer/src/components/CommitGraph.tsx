@@ -3,7 +3,7 @@ import { FileEdit, CloudOff, Archive, GitBranch, Cloud, Tag } from 'lucide-react
 import { useStore } from '../store/useStore'
 import { computeGraph, type GraphRow } from '../lib/graph'
 import { relativeTime, initials, colorFromString, dayKey, dayLabel } from '../lib/format'
-import { ContextMenu, useContextMenu, type MenuItem } from './ui'
+import { ContextMenu, useContextMenu, type MenuItem, Modal, Button } from './ui'
 import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Commit, CommitRef, Stash } from '@shared/types'
 
@@ -144,7 +144,10 @@ export function CommitGraph(): React.JSX.Element {
                   selectCommit(row.hash)
                 }}
                 onMenu={(e) =>
-                  cm.open(e, stash ? buildStashMenu(stash, setModal) : buildMenu(commit, setModal))
+                  cm.open(
+                    e,
+                    stash ? buildStashMenu(stash, setModal) : buildMenu(commit, currentBranch, setModal)
+                  )
                 }
                 onBranchMenu={(e, group) => cm.open(e, buildBranchMenu(group, currentBranch, setModal))}
                 onTagMenu={(e, ref) => cm.open(e, buildTagMenu(ref, setModal))}
@@ -734,10 +737,32 @@ function buildStashMenu(stash: Stash, setModal: (n: React.ReactNode) => void): M
   ]
 }
 
-function buildMenu(commit: Commit, setModal: (n: React.ReactNode) => void): MenuItem[] {
+function buildMenu(
+  commit: Commit,
+  currentBranch: string | null,
+  setModal: (n: React.ReactNode) => void
+): MenuItem[] {
   const store = useStore.getState
   const close = (): void => setModal(null)
+  // The commit currently at HEAD: reword is only offered here (rewording an
+  // older commit would rewrite history — that belongs to interactive rebase).
+  const isHead = commit.refs.some(
+    (r) => r.type === 'HEAD' || (r.type === 'head' && r.name === currentBranch)
+  )
   return [
+    {
+      label: 'Reword message…',
+      disabled: !isHead,
+      onClick: () =>
+        setModal(
+          <RewordModal
+            initial={commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject}
+            onConfirm={(msg) => store().rewordHead(msg)}
+            onClose={close}
+          />
+        )
+    },
+    { label: '', separator: true, onClick: () => {} },
     {
       label: 'Checkout this commit',
       onClick: () =>
@@ -805,6 +830,50 @@ function buildMenu(commit: Commit, setModal: (n: React.ReactNode) => void): Menu
       onClick: () => navigator.clipboard.writeText(commit.hash)
     }
   ]
+}
+
+function RewordModal({
+  initial,
+  onConfirm,
+  onClose
+}: {
+  initial: string
+  onConfirm: (message: string) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const [value, setValue] = useState(initial)
+  const submit = (): void => {
+    const msg = value.trim()
+    if (!msg) return
+    onConfirm(msg)
+    onClose()
+  }
+  return (
+    <Modal title="Reword commit message" onClose={onClose}>
+      <span className="block text-[12px] text-app-muted mb-1">
+        New message for this commit (rewrites the HEAD commit)
+      </span>
+      <textarea
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
+        }}
+        rows={8}
+        className="selectable w-full px-3 py-2 rounded-md bg-app-bg border border-app-border text-app-text outline-none focus:border-app-accent transition-colors font-mono text-[12px] leading-relaxed resize-y"
+      />
+      <div className="flex items-center justify-between mt-4">
+        <span className="text-[11px] text-app-muted">⌘/Ctrl + Enter to save</span>
+        <div className="flex gap-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={!value.trim()}>
+            Reword
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 function BranchFromCommit({ hash, onClose }: { hash: string; onClose: () => void }): React.JSX.Element {
