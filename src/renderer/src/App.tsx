@@ -13,6 +13,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { SshManager } from './components/SshManager'
 import { Toast } from './components/Toast'
 import { UpdateBanner } from './components/UpdateBanner'
+import { SearchBar } from './components/SearchBar'
 
 export default function App(): React.JSX.Element {
   const repo = useStore((s) => s.repo)
@@ -55,6 +56,14 @@ export default function App(): React.JSX.Element {
   // ←/→ switch focus between the commit list and the file list.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // Cmd/Ctrl+F opens the search bar (globally, even while typing).
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+        if (useStore.getState().repo) {
+          e.preventDefault()
+          useStore.getState().openSearch()
+        }
+        return
+      }
       if (sshOpenRef.current) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
@@ -140,6 +149,7 @@ export default function App(): React.JSX.Element {
       )}
 
       {sshOpen && <SshManager onClose={() => setSshOpen(false)} />}
+      <SearchBar />
       <Toast />
     </div>
   )

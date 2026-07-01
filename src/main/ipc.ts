@@ -82,6 +82,9 @@ export function registerIpcHandlers(): void {
     (path: string, file: string, opts: { staged: boolean; untracked: boolean }) =>
       gitService.getWorkingDiff(path, file, opts)
   )
+  handle(Channels.searchCommits, (path: string, query: string) =>
+    gitService.searchCommits(path, query)
+  )
 
   // --- mutations ---
   handle(Channels.stage, (path: string, files: string[]) => gitService.stage(path, files))

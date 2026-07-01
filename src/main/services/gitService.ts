@@ -118,6 +118,45 @@ export const gitService = {
     return this.openRepo(repoPath)
   },
 
+  /**
+   * Search history for commits whose changed file names or modified code
+   * contain the query. (Message/author/hash/ref-name matching is done cheaply
+   * on the client from already-loaded data.) Returns matching commit hashes.
+   */
+  async searchCommits(repoPath: string, query: string): Promise<string[]> {
+    const q = query.trim()
+    if (!q) return []
+    const hashes = new Set<string>()
+    const g = git(repoPath)
+
+    // Modified code: pickaxe -G (regex) over all diffs, case-insensitive.
+    const rx = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    try {
+      const out = await g.raw(['log', '--all', '-i', '--format=%H', `-G${rx}`])
+      for (const h of out.split('\n')) {
+        const t = h.trim()
+        if (t) hashes.add(t)
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // Changed file names: --name-only, filtered here (case-insensitive substring).
+    try {
+      const out = await g.raw(['log', '--all', `--format=${RECORD}%H`, '--name-only'])
+      const ql = q.toLowerCase()
+      for (const block of out.split(RECORD)) {
+        const lines = block.split('\n').map((l) => l.trim()).filter(Boolean)
+        if (lines.length === 0) continue
+        const hash = lines[0]
+        if (lines.slice(1).some((f) => f.toLowerCase().includes(ql))) hashes.add(hash)
+      }
+    } catch {
+      /* ignore */
+    }
+    return [...hashes]
+  },
+
   async getCommits(repoPath: string, limit = 500): Promise<Commit[]> {
     const format =
       ['%H', '%h', '%P', '%an', '%ae', '%aI', '%s', '%b', '%D'].join(FIELD) + RECORD
