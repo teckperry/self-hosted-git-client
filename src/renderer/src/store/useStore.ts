@@ -41,6 +41,8 @@ interface AppState {
   busy: boolean
   busyLabel: string
   toast: Toast | null
+  /** set when a normal push was rejected (non-fast-forward); holds the opts to retry with force */
+  pushRejected: PushOptions | null
   theme: ThemeMode
   sidebarOpen: boolean
   focusZone: 'commits' | 'files'
@@ -123,6 +125,7 @@ interface AppState {
   discard: (file: FileChange) => Promise<void>
   commit: (message: string, amend: boolean) => Promise<void>
   push: (opts: PushOptions) => Promise<void>
+  dismissPushRejected: () => void
   pull: () => Promise<void>
   fetch: () => Promise<void>
   /** Silent background fetch (no busy/toast) to keep ahead/behind fresh. */
@@ -156,6 +159,7 @@ export const useStore = create<AppState>()((set, get) => ({
   busy: false,
   busyLabel: '',
   toast: null,
+  pushRejected: null,
   theme: 'dark',
   sidebarOpen: false,
   focusZone: 'commits',
@@ -653,8 +657,30 @@ export const useStore = create<AppState>()((set, get) => ({
       }
     }),
 
-  push: (opts) =>
-    get().run('Pushing…', () => call(api.push(get().repo!.path, opts)), 'Push complete'),
+  push: async (opts) => {
+    if (get().busy) return
+    const repo = get().repo
+    if (!repo) return
+    set({ busy: true, busyLabel: 'Pushing…', pushRejected: null })
+    try {
+      await call(api.push(repo.path, opts))
+      await get().refreshAll()
+      get().showToast({ kind: 'success', message: opts.force ? 'Force-pushed' : 'Push complete' })
+    } catch (e) {
+      const msg = errMsg(e)
+      // A non-fast-forward rejection means local history diverged from the
+      // remote (typically after reword/amend/rebase). Offer a safe force push
+      // (--force-with-lease) rather than just reporting the failure.
+      if (!opts.force && /non-fast-forward|fetch first|\brejected\b|force/i.test(msg)) {
+        set({ pushRejected: opts })
+      } else {
+        get().showToast({ kind: 'error', message: msg })
+      }
+    } finally {
+      set({ busy: false, busyLabel: '' })
+    }
+  },
+  dismissPushRejected: () => set({ pushRejected: null }),
   pull: () => get().run('Pulling…', () => call(api.pull(get().repo!.path)), 'Pull complete'),
   fetch: () => get().run('Fetching…', () => call(api.fetch(get().repo!.path)), 'Fetch complete'),
 
