@@ -74,7 +74,7 @@ export function DetailPanel(): React.JSX.Element {
           </button>
         </div>
         {commit.body && (
-          <pre className="mt-2 text-[12px] text-app-text/90 whitespace-pre-wrap break-words selectable font-sans">
+          <pre className="mt-2 max-h-32 overflow-y-auto text-[12px] text-app-text/90 whitespace-pre-wrap break-words selectable font-sans">
             {commit.body}
           </pre>
         )}
