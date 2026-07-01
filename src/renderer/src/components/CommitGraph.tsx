@@ -7,7 +7,7 @@ import { ContextMenu, useContextMenu, type MenuItem } from './ui'
 import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Commit, CommitRef, Stash } from '@shared/types'
 
-const ROW_H = 48
+const ROW_H = 34
 const LANE_W = 16
 const PAD = 10
 const R = 5
@@ -97,7 +97,7 @@ export function CommitGraph(): React.JSX.Element {
             setFocusZone('commits')
             selectWip()
           }}
-          className={`flex items-center w-full h-10 px-3 border-b border-app-border text-left ${
+          className={`flex items-center w-full h-9 px-3 border-b border-app-border text-left ${
             selection?.type === 'wip' ? 'bg-app-accent/15' : 'hover:bg-app-hover'
           }`}
         >
@@ -255,7 +255,7 @@ function CommitRow({
       ref={setRefs}
       onClick={onClick}
       onContextMenu={onMenu}
-      className={`flex items-center min-h-[48px] border-b border-app-border/50 cursor-pointer ${
+      className={`flex items-center min-h-[34px] border-b border-app-border/50 cursor-pointer ${
         selected
           ? 'bg-app-accent/15'
           : isStash
@@ -327,25 +327,24 @@ function CommitRow({
         )}
       </svg>
 
-      <div
-        style={{ width: REFS_W }}
-        className="shrink-0 flex flex-wrap items-center content-center gap-1 py-1 pl-1 pr-2"
-      >
-        {groupBranchRefs(commit.refs).map((g) => (
-          <BranchBadge
-            key={`b:${g.base}`}
-            group={g}
-            laneColor={row.color}
-            isCurrent={!!g.local && g.local === currentBranch}
-            onMenu={onBranchMenu}
-          />
-        ))}
-        {commit.refs
-          .filter((r) => r.type === 'tag')
-          .map((r, i) => (
-            <TagBadge key={`t:${i}`} refObj={r} onMenu={onTagMenu} />
-          ))}
-        {commit.refs.some((r) => r.type === 'stash') && <StashBadge key="stash" />}
+      <div style={{ width: REFS_W }} className="shrink-0 flex items-center gap-1 py-1 pl-1 pr-2">
+        <RefLabels
+          labels={[
+            ...groupBranchRefs(commit.refs).map((g) => (
+              <BranchBadge
+                key={`b:${g.base}`}
+                group={g}
+                laneColor={row.color}
+                isCurrent={!!g.local && g.local === currentBranch}
+                onMenu={onBranchMenu}
+              />
+            )),
+            ...commit.refs
+              .filter((r) => r.type === 'tag')
+              .map((r, i) => <TagBadge key={`t:${i}`} refObj={r} onMenu={onTagMenu} />),
+            ...(commit.refs.some((r) => r.type === 'stash') ? [<StashBadge key="stash" />] : [])
+          ]}
+        />
       </div>
 
       <div className="flex-1 min-w-0 self-stretch flex items-center gap-1.5 px-2 border-l border-app-border/40">
@@ -406,6 +405,27 @@ function groupBranchRefs(refs: CommitRef[]): BranchGroup[] {
     else if (r.type === 'remote') get(r.name.slice(r.name.indexOf('/') + 1)).remotes.push(r.name)
   }
   return order.map((b) => map.get(b)!)
+}
+
+/** Renders a commit's ref labels compactly: the first one plus a "+X" chip when
+ *  there are more, revealing the full set on hover (in the foreground) so a busy
+ *  commit never stretches the row. */
+function RefLabels({ labels }: { labels: React.ReactNode[] }): React.JSX.Element | null {
+  if (labels.length === 0) return null
+  if (labels.length === 1) return <>{labels[0]}</>
+  return (
+    <>
+      {labels[0]}
+      <span className="relative inline-flex shrink-0 group/more">
+        <span className="px-1.5 h-[20px] inline-flex items-center rounded border border-app-border bg-app-panel-2 text-app-muted text-[11px] font-semibold cursor-default">
+          +{labels.length - 1}
+        </span>
+        <span className="absolute left-0 top-0 z-40 hidden w-max max-w-[320px] group-hover/more:flex flex-wrap items-center gap-1 p-1.5 rounded-md border border-app-border bg-app-panel shadow-2xl">
+          {labels}
+        </span>
+      </span>
+    </>
+  )
 }
 
 /** A branch label: local icon (⎇) and/or remote icon (☁) plus the name. The
