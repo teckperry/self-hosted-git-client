@@ -35,6 +35,10 @@ export function DetailPanel(): React.JSX.Element {
   const isHead =
     !!commit &&
     commit.refs.some((r) => r.type === 'HEAD' || (r.type === 'head' && r.name === status?.current))
+  // A local branch tip here other than the current branch: to reword it you'd
+  // check that branch out first (then it becomes editable as its own HEAD).
+  const otherBranchTip =
+    commit?.refs.find((r) => r.type === 'head' && r.name !== status?.current)?.name ?? null
   const fullMessage = commit ? (commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject) : ''
 
   const [draft, setDraft] = useState(fullMessage)
@@ -153,16 +157,17 @@ export function DetailPanel(): React.JSX.Element {
             <div className="flex justify-end mt-1.5">
               <button
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded border border-app-border text-[12px] text-app-muted hover:text-app-text hover:bg-app-hover"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md border border-app-accent/60 text-app-accent hover:bg-app-accent hover:text-app-accent-fg transition-colors text-[12px] font-medium"
               >
                 <Pencil size={12} /> Update description
               </button>
             </div>
-          ) : (
-            <p className="text-[11px] text-app-muted mt-1.5 leading-relaxed">
-              Only the latest commit can be edited here — rewording an earlier commit rewrites history
-              (coming with interactive rebase).
+          ) : otherBranchTip ? (
+            <p className="text-[11px] text-app-muted mt-1.5">
+              Checkout <span className="text-app-text">{otherBranchTip}</span> to edit this message.
             </p>
+          ) : (
+            <p className="text-[11px] text-app-muted mt-1.5">Editing older commits needs rebase.</p>
           )}
         </div>
       </div>
