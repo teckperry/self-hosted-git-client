@@ -22,8 +22,9 @@ Grab the installer for your OS from the
 Builds are **not code-signed**, so on the first launch your OS shows a
 security warning. This is expected — just allow it once:
 
-- **macOS**: right-click the app → **Open** → **Open**. If it's still
-  blocked, run:
+- **macOS**: right-click the app → **Open** → **Open** (or System Settings →
+  Privacy & Security → **Open Anyway**). If macOS says the app is *damaged* or
+  won't open at all, clear the quarantine flag once:
   ```bash
   xattr -cr "/Applications/Self-hosted Git Client.app"
   ```

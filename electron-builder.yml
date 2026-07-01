@@ -3,6 +3,8 @@
 # `name` in package.json + src/renderer/src/branding.ts.
 appId: com.selfhostedgitclient.app
 productName: Self-hosted Git Client
+# Ad-hoc sign the macOS app so it isn't blocked as "damaged" on Apple Silicon.
+afterPack: build/afterPack.js
 directories:
   output: dist
   buildResources: build
