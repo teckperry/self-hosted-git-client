@@ -1,6 +1,6 @@
 {
   "name": "self-hosted-git-client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A free, open and self-hosted desktop Git client",
   "main": "./out/main/index.js",
   "author": "Teckperry <teckperry.95@gmail.com>",
