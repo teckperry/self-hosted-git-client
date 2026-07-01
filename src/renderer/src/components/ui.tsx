@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
 type BtnVariant = 'primary' | 'default' | 'ghost' | 'danger'
@@ -151,13 +151,27 @@ export function ContextMenu({
     }
   }, [onClose])
 
-  // keep menu on-screen
-  const style: React.CSSProperties = { left: x, top: y }
+  // Keep the menu on-screen: flip it up when it would overflow the bottom and
+  // clamp it horizontally. Measured before paint to avoid a flash.
+  const [pos, setPos] = useState<{ left: number; top: number }>({ left: x, top: y })
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const pad = 6
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    let left = x
+    let top = y
+    if (left + w > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - w - pad)
+    if (top + h > window.innerHeight - pad) top = Math.max(pad, y - h)
+    setPos({ left, top })
+  }, [x, y])
+
   return (
     <div
       ref={ref}
       className="fixed z-[60] min-w-[180px] py-1 bg-app-panel border border-app-border rounded-md shadow-2xl"
-      style={style}
+      style={pos}
       onClick={(e) => e.stopPropagation()}
     >
       {items.map((it, i) =>

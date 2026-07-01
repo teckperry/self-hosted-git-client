@@ -49,6 +49,7 @@ export const Channels = {
   revertCommit: 'git:revertCommit',
   cherryPick: 'git:cherryPick',
   createTag: 'git:createTag',
+  deleteTag: 'git:deleteTag',
 
   stashSave: 'git:stashSave',
   stashApply: 'git:stashApply',

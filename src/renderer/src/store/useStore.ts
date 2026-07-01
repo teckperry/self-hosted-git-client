@@ -115,6 +115,7 @@ interface AppState {
   revertCommit: (hash: string) => Promise<void>
   cherryPick: (hash: string) => Promise<void>
   createTag: (name: string, hash?: string) => Promise<void>
+  deleteTag: (name: string) => Promise<void>
   stashSave: (message: string) => Promise<void>
   stashApply: (index: number) => Promise<void>
   stashPop: (index: number) => Promise<void>
@@ -602,6 +603,8 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run('Cherry-picking…', () => call(api.cherryPick(get().repo!.path, hash)), 'Cherry-pick complete'),
   createTag: (name, hash) =>
     get().run('Creating tag…', () => call(api.createTag(get().repo!.path, name, hash)), `Tag ${name} created`),
+  deleteTag: (name) =>
+    get().run('Deleting tag…', () => call(api.deleteTag(get().repo!.path, name)), `Tag ${name} deleted`),
   stashSave: (message) =>
     get().run('Stashing…', () => call(api.stashSave(get().repo!.path, message)), 'Stash saved'),
   stashApply: (index) =>

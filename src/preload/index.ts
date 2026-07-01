@@ -81,6 +81,7 @@ const api = {
   cherryPick: (path: string, hash: string) => invoke<void>(Channels.cherryPick, path, hash),
   createTag: (path: string, name: string, hash?: string) =>
     invoke<void>(Channels.createTag, path, name, hash),
+  deleteTag: (path: string, name: string) => invoke<void>(Channels.deleteTag, path, name),
 
   stashSave: (path: string, message: string) => invoke<void>(Channels.stashSave, path, message),
   stashApply: (path: string, index: number) => invoke<void>(Channels.stashApply, path, index),
