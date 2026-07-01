@@ -28,6 +28,17 @@ function hexA(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+/** Black or white text, whichever reads better on the given solid color. */
+function contrastText(hex: string): string {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return lum > 0.6 ? '#000000' : '#ffffff'
+}
+
 export function CommitGraph(): React.JSX.Element {
   const commits = useStore((s) => s.commits)
   const status = useStore((s) => s.status)
@@ -425,13 +436,13 @@ function BranchBadge({
     onMenu(e, group)
   }
   if (isCurrent) {
+    // HEAD's format (solid, bold chip) but in the branch's own graph color.
     return (
       <ExpandableBadge
         icon={icons}
         name={group.base}
-        className="text-app-accent-fg border-app-accent"
-        collapsedBg="bg-app-accent"
-        overlayBg="bg-app-accent"
+        className="font-bold"
+        style={{ color: contrastText(laneColor), backgroundColor: laneColor, borderColor: laneColor }}
         onActivate={activate}
         onContextMenu={menuHandler}
       />
@@ -492,7 +503,6 @@ function ExpandableBadge({
   style,
   collapsedBg = '',
   collapsedBgStyle,
-  overlayBg = 'bg-app-panel-2',
   onActivate,
   onContextMenu
 }: {
@@ -500,14 +510,12 @@ function ExpandableBadge({
   name: string
   /** border + text color classes shared by both states (no background) */
   className?: string
-  /** border/text color as inline style (for lane-tinted branches) */
+  /** border/text color (and, for the current branch, solid bg) as inline style */
   style?: React.CSSProperties
   /** collapsed-state background class */
   collapsedBg?: string
   /** collapsed-state background as inline style */
   collapsedBgStyle?: React.CSSProperties
-  /** solid background for the hover overlay (must be opaque to cover neighbors) */
-  overlayBg?: string
   /** double-click action (e.g. checkout the branch) */
   onActivate?: () => void
   /** right-click handler (opens a ref-specific menu) */
@@ -535,7 +543,7 @@ function ExpandableBadge({
       </span>
       {/* expanded overlay on hover — absolute, solid background, no layout impact */}
       <span
-        className={`${chip} ${className} ${overlayBg} absolute left-0 top-0 z-30 hidden w-max max-w-none whitespace-nowrap shadow-lg group-hover/ref:inline-flex`}
+        className={`${chip} ${className} bg-app-panel-2 absolute left-0 top-0 z-30 hidden w-max max-w-none whitespace-nowrap shadow-lg group-hover/ref:inline-flex`}
         style={style}
         aria-hidden="true"
       >
