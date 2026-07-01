@@ -24,7 +24,7 @@ export default function App(): React.JSX.Element {
   const checkForUpdate = useStore((s) => s.checkForUpdate)
   const autoFetch = useStore((s) => s.autoFetch)
   const [sshOpen, setSshOpen] = useState(false)
-  const [rightWidth, setRightWidth] = useState(560)
+  const [rightWidth, setRightWidth] = useState(504)
   const dragging = useRef(false)
   const sshOpenRef = useRef(sshOpen)
   sshOpenRef.current = sshOpen
