@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { Search, X } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { IconButton } from './ui'
+import { IconButton, Spinner } from './ui'
 
 /**
  * Floating search bar (bottom-right, not a modal). Matching commits stay bright
@@ -11,6 +11,7 @@ export function SearchBar(): React.JSX.Element | null {
   const open = useStore((s) => s.searchOpen)
   const query = useStore((s) => s.searchQuery)
   const matches = useStore((s) => s.searchMatches)
+  const loading = useStore((s) => s.searchLoading)
   const setQuery = useStore((s) => s.setSearchQuery)
   const close = useStore((s) => s.closeSearch)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -38,8 +39,11 @@ export function SearchBar(): React.JSX.Element | null {
         className="selectable w-64 bg-transparent outline-none text-[13px] text-app-text placeholder:text-app-muted"
       />
       {query.trim() && (
-        <span className="text-[11px] text-app-muted tabular-nums shrink-0">
-          {matches ? matches.size : 0}
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[11px] text-app-muted tabular-nums">
+            {matches ? matches.size : 0}
+          </span>
+          {loading && <Spinner size={12} />}
         </span>
       )}
       <IconButton title="Close (Esc)" onClick={close}>

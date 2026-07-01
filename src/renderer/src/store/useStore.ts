@@ -55,6 +55,8 @@ interface AppState {
   searchQuery: string
   /** hashes of matching commits, or null when no search is active */
   searchMatches: Set<string> | null
+  /** true while the git-backed (file-name) pass is still running */
+  searchLoading: boolean
 
   // repo data
   commits: Commit[]
@@ -157,6 +159,7 @@ export const useStore = create<AppState>()((set, get) => ({
   searchOpen: false,
   searchQuery: '',
   searchMatches: null,
+  searchLoading: false,
 
   commits: [],
   status: null,
@@ -240,7 +243,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   closeSearch: () => {
     if (searchDebounce) clearTimeout(searchDebounce)
-    set({ searchOpen: false, searchQuery: '', searchMatches: null })
+    set({ searchOpen: false, searchQuery: '', searchMatches: null, searchLoading: false })
   },
 
   setSearchQuery: (q) => {
@@ -248,7 +251,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const query = q.trim()
     if (searchDebounce) clearTimeout(searchDebounce)
     if (!query) {
-      set({ searchMatches: null })
+      set({ searchMatches: null, searchLoading: false })
       return
     }
     // Instant client-side pass: message, author, hash, branch/tag names.
@@ -267,8 +270,9 @@ export const useStore = create<AppState>()((set, get) => ({
         matches.add(c.hash)
       }
     }
-    set({ searchMatches: matches })
-    // Debounced git-backed pass: changed file names + modified code.
+    // Client matches are ready, but the git file-name pass is still pending.
+    set({ searchMatches: matches, searchLoading: true })
+    // Debounced git-backed pass: changed file names.
     searchDebounce = setTimeout(async () => {
       const repo = get().repo
       if (!repo || get().searchQuery.trim() !== query) return
@@ -280,6 +284,9 @@ export const useStore = create<AppState>()((set, get) => ({
         set({ searchMatches: merged })
       } catch {
         /* ignore search errors */
+      } finally {
+        // Clear the spinner only if this is still the active query.
+        if (get().searchQuery.trim() === query) set({ searchLoading: false })
       }
     }, 300)
   },
