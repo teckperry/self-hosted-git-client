@@ -655,6 +655,23 @@ function buildBranchMenu(
   if (local) {
     items.push({ label: '', separator: true, onClick: () => {} })
     items.push({
+      label: 'Rename branch…',
+      onClick: () =>
+        setModal(
+          <PromptModal
+            title="Rename branch"
+            label={`New name for "${local}"`}
+            initialValue={local}
+            confirmText="Rename"
+            onConfirm={(name) => {
+              const next = name.trim()
+              if (next && next !== local) store().renameBranch(local, next)
+            }}
+            onClose={close}
+          />
+        )
+    })
+    items.push({
       label: 'Delete branch',
       danger: true,
       disabled: isCurrent,

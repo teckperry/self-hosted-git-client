@@ -130,6 +130,7 @@ interface AppState {
   checkoutBranch: (name: string, isRemote: boolean) => Promise<void>
   createBranch: (name: string, checkout: boolean) => Promise<void>
   deleteBranch: (name: string, force: boolean) => Promise<void>
+  renameBranch: (oldName: string, newName: string) => Promise<void>
   deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
   checkoutCommit: (hash: string) => Promise<void>
@@ -706,6 +707,12 @@ export const useStore = create<AppState>()((set, get) => ({
       'Deleting branch…',
       () => call(api.deleteBranch(get().repo!.path, name, force)),
       `Branch ${name} deleted`
+    ),
+  renameBranch: (oldName, newName) =>
+    get().run(
+      'Renaming branch…',
+      () => call(api.renameBranch(get().repo!.path, oldName, newName)),
+      `Branch renamed to ${newName}`
     ),
   deleteRemoteBranch: (remoteRef) =>
     get().run(

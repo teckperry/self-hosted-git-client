@@ -109,6 +109,9 @@ export function registerIpcHandlers(): void {
   handle(Channels.deleteBranch, (path: string, name: string, force: boolean) =>
     gitService.deleteBranch(path, name, force)
   )
+  handle(Channels.renameBranch, (path: string, oldName: string, newName: string) =>
+    gitService.renameBranch(path, oldName, newName)
+  )
   handle(Channels.deleteRemoteBranch, (path: string, remoteRef: string) =>
     gitService.deleteRemoteBranch(path, remoteRef)
   )
