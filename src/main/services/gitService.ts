@@ -476,6 +476,15 @@ export const gitService = {
     await git(repoPath).deleteLocalBranch(name, force)
   },
 
+  /** Delete a branch on its remote. `remoteRef` is like "origin/feature/x". */
+  async deleteRemoteBranch(repoPath: string, remoteRef: string): Promise<void> {
+    const slash = remoteRef.indexOf('/')
+    if (slash < 0) throw new Error(`Invalid remote branch ref: ${remoteRef}`)
+    const remote = remoteRef.slice(0, slash)
+    const branch = remoteRef.slice(slash + 1)
+    await git(repoPath).raw(['push', remote, '--delete', branch])
+  },
+
   async mergeBranch(repoPath: string, name: string): Promise<string> {
     const res = await git(repoPath).merge([name])
     return JSON.stringify(res)

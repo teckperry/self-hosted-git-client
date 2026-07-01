@@ -106,9 +106,12 @@ interface AppState {
   push: (opts: PushOptions) => Promise<void>
   pull: () => Promise<void>
   fetch: () => Promise<void>
+  /** Silent background fetch (no busy/toast) to keep ahead/behind fresh. */
+  autoFetch: () => Promise<void>
   checkoutBranch: (name: string, isRemote: boolean) => Promise<void>
   createBranch: (name: string, checkout: boolean) => Promise<void>
   deleteBranch: (name: string, force: boolean) => Promise<void>
+  deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
   checkoutCommit: (hash: string) => Promise<void>
   resetTo: (hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
@@ -573,6 +576,19 @@ export const useStore = create<AppState>()((set, get) => ({
   pull: () => get().run('Pulling…', () => call(api.pull(get().repo!.path)), 'Pull complete'),
   fetch: () => get().run('Fetching…', () => call(api.fetch(get().repo!.path)), 'Fetch complete'),
 
+  // Silent background fetch: no busy flag, no toast. Refreshes so ahead/behind
+  // and the graph reflect the remote — the app keeps the user up to date.
+  autoFetch: async () => {
+    const repo = get().repo
+    if (!repo || get().busy) return
+    try {
+      await call(api.fetch(repo.path))
+      await get().refreshAll()
+    } catch {
+      /* offline / auth / no remote — ignore */
+    }
+  },
+
   checkoutBranch: (name, isRemote) =>
     get().run(
       `Checking out ${name}…`,
@@ -590,6 +606,12 @@ export const useStore = create<AppState>()((set, get) => ({
       'Deleting branch…',
       () => call(api.deleteBranch(get().repo!.path, name, force)),
       `Branch ${name} deleted`
+    ),
+  deleteRemoteBranch: (remoteRef) =>
+    get().run(
+      'Deleting remote branch…',
+      () => call(api.deleteRemoteBranch(get().repo!.path, remoteRef)),
+      `Remote branch ${remoteRef} deleted`
     ),
   mergeBranch: (name) =>
     get().run('Merging…', () => call(api.mergeBranch(get().repo!.path, name)), `Merged ${name}`),

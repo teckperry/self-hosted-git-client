@@ -544,27 +544,41 @@ function buildRefMenu(
       onClick: () => store().mergeBranch(ref.name)
     },
     { label: '', separator: true, onClick: () => {} },
-    { label: 'Copy name', onClick: () => navigator.clipboard.writeText(ref.name) }
+    { label: 'Copy name', onClick: () => navigator.clipboard.writeText(ref.name) },
+    { label: '', separator: true, onClick: () => {} },
+    isRemote
+      ? {
+          label: 'Delete remote branch',
+          danger: true,
+          onClick: () =>
+            setModal(
+              <ConfirmModal
+                title="Delete remote branch"
+                message={`Delete "${ref.name}" from the remote?\nThis runs git push --delete.`}
+                danger
+                confirmText="Delete"
+                onConfirm={() => store().deleteRemoteBranch(ref.name)}
+                onClose={close}
+              />
+            )
+        }
+      : {
+          label: 'Delete branch',
+          danger: true,
+          disabled: isCurrent,
+          onClick: () =>
+            setModal(
+              <ConfirmModal
+                title="Delete branch"
+                message={`Delete the branch "${ref.name}"?`}
+                danger
+                confirmText="Delete"
+                onConfirm={() => store().deleteBranch(ref.name, false)}
+                onClose={close}
+              />
+            )
+        }
   ]
-  if (!isRemote) {
-    items.push({ label: '', separator: true, onClick: () => {} })
-    items.push({
-      label: 'Delete branch',
-      danger: true,
-      disabled: isCurrent,
-      onClick: () =>
-        setModal(
-          <ConfirmModal
-            title="Delete branch"
-            message={`Delete the branch "${ref.name}"?`}
-            danger
-            confirmText="Delete"
-            onConfirm={() => store().deleteBranch(ref.name, false)}
-            onClose={close}
-          />
-        )
-    })
-  }
   return items
 }
 
