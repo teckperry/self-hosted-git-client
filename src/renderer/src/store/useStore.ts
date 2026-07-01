@@ -14,7 +14,8 @@ import type {
   DiffFile,
   FileChange,
   PushOptions,
-  UpdateInfo
+  UpdateInfo,
+  MergeState
 } from '@shared/types'
 
 /** Debounce handle for the git-backed part of the search (filenames + code). */
@@ -65,6 +66,9 @@ interface AppState {
   // in-editor code search (Cmd/Ctrl+F while the diff editor is open)
   editorSearchOpen: boolean
   editorSearchQuery: string
+
+  /** in-progress merge/rebase/cherry-pick/revert and its conflicted files */
+  mergeState: MergeState | null
 
   // repo data
   commits: Commit[]
@@ -140,6 +144,10 @@ interface AppState {
   renameBranch: (oldName: string, newName: string) => Promise<void>
   deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
+  resolveConflict: (file: string, side: 'ours' | 'theirs') => Promise<void>
+  markConflictResolved: (file: string) => Promise<void>
+  abortOperation: () => Promise<void>
+  continueOperation: () => Promise<void>
   checkoutCommit: (hash: string) => Promise<void>
   rewordHead: (message: string) => Promise<void>
   openOnRemote: (kind: 'commit' | 'branch' | 'repo', ref?: string) => Promise<void>
@@ -180,6 +188,8 @@ export const useStore = create<AppState>()((set, get) => ({
   searchLoading: false,
   editorSearchOpen: false,
   editorSearchQuery: '',
+
+  mergeState: null,
 
   commits: [],
   status: null,
@@ -544,13 +554,14 @@ export const useStore = create<AppState>()((set, get) => ({
     const repo = get().repo
     if (!repo) return
     const p = repo.path
-    const [commits, status, branches, remotes, stashes, tags] = await Promise.all([
+    const [commits, status, branches, remotes, stashes, tags, mergeState] = await Promise.all([
       call(api.getCommits(p, 800)).catch(() => [] as Commit[]),
       call(api.getStatus(p)).catch(() => null),
       call(api.getBranches(p)).catch(() => [] as Branch[]),
       call(api.getRemotes(p)).catch(() => [] as Remote[]),
       call(api.getStashes(p)).catch(() => [] as Stash[]),
-      call(api.getTags(p)).catch(() => [] as Tag[])
+      call(api.getTags(p)).catch(() => [] as Tag[]),
+      call(api.mergeState(p)).catch(() => null)
     ])
     // keep repo header in sync (current branch may have changed)
     let repoInfo = repo
@@ -559,7 +570,7 @@ export const useStore = create<AppState>()((set, get) => ({
     } catch {
       /* ignore */
     }
-    set({ commits, status, branches, remotes, stashes, tags, repo: repoInfo })
+    set({ commits, status, branches, remotes, stashes, tags, mergeState, repo: repoInfo })
 
     // revalidate current selection
     const sel = get().selection
@@ -773,6 +784,27 @@ export const useStore = create<AppState>()((set, get) => ({
     ),
   mergeBranch: (name) =>
     get().run('Merging…', () => call(api.mergeBranch(get().repo!.path, name)), `Merged ${name}`),
+  resolveConflict: (file, side) =>
+    get().run(
+      `Taking ${side} for ${file}…`,
+      () => call(api.resolveConflict(get().repo!.path, file, side))
+    ),
+  markConflictResolved: (file) =>
+    get().run('Marking resolved…', () => call(api.markConflictResolved(get().repo!.path, file))),
+  abortOperation: () => {
+    const op = get().mergeState?.operation
+    if (!op) return Promise.resolve()
+    return get().run(`Aborting ${op}…`, () => call(api.abortOperation(get().repo!.path, op)), `${op} aborted`)
+  },
+  continueOperation: () => {
+    const op = get().mergeState?.operation
+    if (!op) return Promise.resolve()
+    return get().run(
+      `Continuing ${op}…`,
+      () => call(api.continueOperation(get().repo!.path, op)),
+      `${op} continued`
+    )
+  },
   checkoutCommit: (hash) =>
     get().run('Checking out commit…', () => call(api.checkoutCommit(get().repo!.path, hash))),
   rewordHead: (message) =>

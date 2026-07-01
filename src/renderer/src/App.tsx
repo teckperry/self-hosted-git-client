@@ -5,6 +5,7 @@ import { Toolbar } from './components/Toolbar'
 import { Sidebar } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { CommitGraph } from './components/CommitGraph'
+import { ConflictBar } from './components/ConflictBar'
 import { DiffEditor } from './components/DiffEditor'
 import { DetailPanel } from './components/DetailPanel'
 import { ChangesPanel } from './components/ChangesPanel'
@@ -133,6 +134,7 @@ export default function App(): React.JSX.Element {
         <>
           <TabBar />
           <Toolbar />
+          <ConflictBar />
           <div className="flex-1 flex min-h-0">
             {sidebarOpen && <Sidebar />}
             <main className="flex-1 min-w-0 border-r border-app-border">

@@ -6,7 +6,8 @@ import type {
   CommitOptions,
   CloneOptions,
   PushOptions,
-  GenerateSshKeyOptions
+  GenerateSshKeyOptions,
+  MergeOperation
 } from '@shared/types'
 import { gitService } from './services/gitService'
 import { sshService } from './services/sshService'
@@ -126,6 +127,19 @@ export function registerIpcHandlers(): void {
     gitService.rewordHead(path, message)
   )
   handle(Channels.remoteWebUrl, (path: string) => gitService.remoteWebUrl(path))
+  handle(Channels.mergeState, (path: string) => gitService.mergeState(path))
+  handle(Channels.resolveConflict, (path: string, file: string, side: 'ours' | 'theirs') =>
+    gitService.resolveConflict(path, file, side)
+  )
+  handle(Channels.markConflictResolved, (path: string, file: string) =>
+    gitService.markConflictResolved(path, file)
+  )
+  handle(Channels.abortOperation, (path: string, op: MergeOperation) =>
+    gitService.abortOperation(path, op)
+  )
+  handle(Channels.continueOperation, (path: string, op: MergeOperation) =>
+    gitService.continueOperation(path, op)
+  )
   handle(Channels.resetTo, (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     gitService.resetTo(path, hash, mode)
   )

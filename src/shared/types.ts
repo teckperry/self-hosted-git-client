@@ -59,6 +59,16 @@ export interface RepoStatus {
   isClean: boolean
 }
 
+/** An in-progress operation that can leave conflicts, plus the conflicted files. */
+export type MergeOperation = 'merge' | 'rebase' | 'cherry-pick' | 'revert'
+
+export interface MergeState {
+  /** null when no such operation is in progress */
+  operation: MergeOperation | null
+  /** paths of files with unresolved conflicts (unmerged in the index) */
+  conflicted: string[]
+}
+
 export interface Branch {
   name: string
   current: boolean
