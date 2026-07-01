@@ -423,8 +423,8 @@ function BranchBadge({
 }): React.JSX.Element {
   const icons = (
     <>
-      {group.local && <GitBranch size={10} className="shrink-0" />}
-      {group.remotes.length > 0 && <Cloud size={10} className="shrink-0" />}
+      {group.local && <GitBranch size={11} className="shrink-0" />}
+      {group.remotes.length > 0 && <Cloud size={11} className="shrink-0" />}
     </>
   )
   const activate = (): void => {
@@ -469,7 +469,7 @@ function TagBadge({
 }): React.JSX.Element {
   return (
     <ExpandableBadge
-      icon={<Tag size={10} className="shrink-0" />}
+      icon={<Tag size={11} className="shrink-0" />}
       name={refObj.name}
       className="text-app-warning border-app-warning/40"
       collapsedBg="bg-app-warning/20"
@@ -484,8 +484,8 @@ function TagBadge({
 
 function StashBadge(): React.JSX.Element {
   return (
-    <span className="px-1.5 h-[18px] inline-flex items-center gap-1 rounded text-[10px] font-bold shrink-0 bg-app-warning text-app-bg uppercase tracking-wide">
-      <Archive size={11} className="shrink-0" /> Stash
+    <span className="px-2 h-[20px] inline-flex items-center gap-1 rounded text-[11px] font-bold shrink-0 bg-app-warning text-app-bg uppercase tracking-wide">
+      <Archive size={12} className="shrink-0" /> Stash
     </span>
   )
 }
@@ -522,7 +522,7 @@ function ExpandableBadge({
   onContextMenu?: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   const chip =
-    'px-1.5 h-[18px] inline-flex items-center gap-1 rounded border text-[10px] font-semibold'
+    'px-2 h-[20px] inline-flex items-center gap-1 rounded border text-[11px] font-semibold'
   return (
     <span
       className={`relative inline-flex shrink-0 group/ref ${onActivate ? 'cursor-pointer' : ''}`}
