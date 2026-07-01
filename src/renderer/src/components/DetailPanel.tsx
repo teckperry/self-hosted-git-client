@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react'
-import { GitCommit, Copy, CloudOff } from 'lucide-react'
+import { GitCommit, Copy, CloudOff, Pencil } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { fullDate, initials, colorFromString } from '../lib/format'
 import { FileStatusBadge } from './FileStatusBadge'
@@ -38,15 +38,25 @@ export function DetailPanel(): React.JSX.Element {
   const fullMessage = commit ? (commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject) : ''
 
   const [draft, setDraft] = useState(fullMessage)
-  // Reset the editable draft whenever the selected commit (or its message) changes.
+  const [editing, setEditing] = useState(false)
+  // Reset the draft and lock the box whenever the selected commit changes.
   useEffect(() => {
     setDraft(fullMessage)
+    setEditing(false)
   }, [commit?.hash, fullMessage])
 
-  const dirty = isHead && draft.trim() !== '' && draft.trim() !== fullMessage.trim()
+  const dirty = draft.trim() !== '' && draft.trim() !== fullMessage.trim()
+  const cancelEdit = (): void => {
+    setDraft(fullMessage)
+    setEditing(false)
+  }
   const saveMessage = async (): Promise<void> => {
-    if (!dirty) return
+    if (!dirty) {
+      setEditing(false)
+      return
+    }
     await rewordHead(draft.trim())
+    setEditing(false)
     // Amend changes the commit hash, so re-select the new HEAD to keep it shown.
     const st = useStore.getState()
     const head = st.commits.find((c) =>
@@ -78,10 +88,7 @@ export function DetailPanel(): React.JSX.Element {
             {initials(commit.author)}
           </span>
           <div className="min-w-0 flex-1">
-            {!isHead && (
-              <div className="text-app-text font-semibold leading-snug selectable">{commit.subject}</div>
-            )}
-            <div className="text-app-muted text-[12px] mt-0.5">
+            <div className="text-app-muted text-[12px] mt-1">
               <span className="text-app-text">{commit.author}</span>{' '}
               <span className="selectable">{`<${commit.authorEmail}>`}</span> · {fullDate(commit.date)}
             </div>
@@ -102,52 +109,62 @@ export function DetailPanel(): React.JSX.Element {
             {commit.shortHash} <Copy size={12} />
           </button>
         </div>
-        {isHead ? (
-          <div className="mt-2">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  void saveMessage()
-                } else if (e.key === 'Escape' && dirty) {
-                  e.preventDefault()
-                  setDraft(fullMessage)
-                }
-                e.stopPropagation() // don't trigger the app's global key handling
-              }}
-              spellCheck={false}
-              placeholder="Commit message"
-              className="w-full min-h-[9rem] max-h-72 overflow-y-auto resize-none px-2.5 py-2 rounded-md bg-app-bg border border-app-border text-[12px] text-app-text/90 leading-relaxed whitespace-pre-wrap break-words outline-none focus:border-app-accent transition-colors selectable"
-            />
-            {dirty && (
-              <div className="flex items-center justify-end gap-2 mt-1.5">
-                <span className="text-[11px] text-app-muted mr-auto">⌘/Ctrl+Enter to save · Esc to revert</span>
-                <button
-                  onClick={() => setDraft(fullMessage)}
-                  disabled={busy}
-                  className="px-2 py-0.5 rounded border border-app-border text-[12px] text-app-muted hover:text-app-text hover:bg-app-hover disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => void saveMessage()}
-                  disabled={busy}
-                  className="px-2.5 py-0.5 rounded bg-app-accent text-app-accent-fg text-[12px] font-medium disabled:opacity-50"
-                >
-                  Save
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          commit.body && (
-            <pre className="mt-2 max-h-32 overflow-y-auto text-[12px] text-app-text/90 whitespace-pre-wrap break-words selectable font-sans">
-              {commit.body}
-            </pre>
-          )
-        )}
+        <div className="mt-2">
+          <textarea
+            value={editing ? draft : fullMessage}
+            readOnly={!editing}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (!editing) return
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                void saveMessage()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelEdit()
+              }
+              e.stopPropagation() // don't trigger the app's global key handling
+            }}
+            spellCheck={false}
+            placeholder="Commit message"
+            className={`w-full min-h-[9rem] max-h-72 overflow-y-auto resize-none px-2.5 py-2 rounded-md bg-app-bg border text-[12px] text-app-text/90 leading-relaxed whitespace-pre-wrap break-words outline-none transition-colors selectable ${
+              editing ? 'border-app-accent' : 'border-app-border cursor-default'
+            }`}
+          />
+          {editing ? (
+            <div className="flex items-center justify-end gap-2 mt-1.5">
+              <span className="text-[11px] text-app-muted mr-auto">⌘/Ctrl+Enter to save · Esc to cancel</span>
+              <button
+                onClick={cancelEdit}
+                disabled={busy}
+                className="px-2 py-0.5 rounded border border-app-border text-[12px] text-app-muted hover:text-app-text hover:bg-app-hover disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void saveMessage()}
+                disabled={busy || !dirty}
+                className="px-2.5 py-0.5 rounded bg-app-accent text-app-accent-fg text-[12px] font-medium disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          ) : isHead ? (
+            <div className="flex justify-end mt-1.5">
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded border border-app-border text-[12px] text-app-muted hover:text-app-text hover:bg-app-hover"
+              >
+                <Pencil size={12} /> Update description
+              </button>
+            </div>
+          ) : (
+            <p className="text-[11px] text-app-muted mt-1.5 leading-relaxed">
+              Only the latest commit can be edited here — rewording an earlier commit rewrites history
+              (coming with interactive rebase).
+            </p>
+          )}
+        </div>
       </div>
 
       {/* file list */}
