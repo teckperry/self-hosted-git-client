@@ -656,15 +656,21 @@ export const gitService = {
   },
 
   /**
-   * Continue the in-progress operation after conflicts are staged. GIT_EDITOR is
-   * neutralised so git doesn't block waiting for a commit-message editor.
+   * Continue the in-progress operation after conflicts are staged. rebase/merge
+   * --continue open an editor for the commit message; neutralise it with a
+   * no-op editor set on THIS process (inherited by the git child) — not via
+   * simple-git's .env(), which would trip its "allowUnsafeEditor" guard on an
+   * EDITOR/GIT_EDITOR value.
    */
   async continueOperation(repoPath: string, op: MergeOperation): Promise<void> {
-    const g = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).env({
-      ...process.env,
-      GIT_EDITOR: 'true'
-    })
-    await g.raw([op, '--continue'])
+    const prev = process.env.GIT_EDITOR
+    process.env.GIT_EDITOR = 'true'
+    try {
+      await git(repoPath).raw([op, '--continue'])
+    } finally {
+      if (prev === undefined) delete process.env.GIT_EDITOR
+      else process.env.GIT_EDITOR = prev
+    }
   },
 
   async createTag(repoPath: string, name: string, hash?: string): Promise<void> {
