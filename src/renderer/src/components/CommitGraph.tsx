@@ -7,7 +7,7 @@ import { ContextMenu, useContextMenu, type MenuItem } from './ui'
 import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Commit, CommitRef, Stash } from '@shared/types'
 
-const ROW_H = 48
+const ROW_H = 34
 const LANE_W = 16
 const PAD = 10
 const R = 5
@@ -97,7 +97,7 @@ export function CommitGraph(): React.JSX.Element {
             setFocusZone('commits')
             selectWip()
           }}
-          className={`flex items-center w-full h-10 px-3 border-b border-app-border text-left ${
+          className={`flex items-center w-full h-9 px-3 border-b border-app-border text-left ${
             selection?.type === 'wip' ? 'bg-app-accent/15' : 'hover:bg-app-hover'
           }`}
         >
@@ -255,7 +255,7 @@ function CommitRow({
       ref={setRefs}
       onClick={onClick}
       onContextMenu={onMenu}
-      className={`flex items-center min-h-[48px] border-b border-app-border/50 cursor-pointer ${
+      className={`flex items-center min-h-[34px] border-b border-app-border/50 cursor-pointer ${
         selected
           ? 'bg-app-accent/15'
           : isStash
