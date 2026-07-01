@@ -519,6 +519,11 @@ export const gitService = {
     await git(repoPath).deleteLocalBranch(name, force)
   },
 
+  /** Rename a local branch. Purely local — the remote is left untouched. */
+  async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
+    await git(repoPath).raw(['branch', '-m', oldName, newName])
+  },
+
   /** Delete a branch on its remote. `remoteRef` is like "origin/feature/x". */
   async deleteRemoteBranch(repoPath: string, remoteRef: string): Promise<void> {
     const slash = remoteRef.indexOf('/')

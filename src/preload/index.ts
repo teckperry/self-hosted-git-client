@@ -75,6 +75,8 @@ const api = {
     invoke<void>(Channels.createBranch, path, name, checkout),
   deleteBranch: (path: string, name: string, force: boolean) =>
     invoke<void>(Channels.deleteBranch, path, name, force),
+  renameBranch: (path: string, oldName: string, newName: string) =>
+    invoke<void>(Channels.renameBranch, path, oldName, newName),
   deleteRemoteBranch: (path: string, remoteRef: string) =>
     invoke<void>(Channels.deleteRemoteBranch, path, remoteRef),
   mergeBranch: (path: string, name: string) => invoke<string>(Channels.mergeBranch, path, name),

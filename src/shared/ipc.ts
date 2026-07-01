@@ -44,6 +44,7 @@ export const Channels = {
   checkoutBranch: 'git:checkoutBranch',
   createBranch: 'git:createBranch',
   deleteBranch: 'git:deleteBranch',
+  renameBranch: 'git:renameBranch',
   deleteRemoteBranch: 'git:deleteRemoteBranch',
   mergeBranch: 'git:mergeBranch',
 
