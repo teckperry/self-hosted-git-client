@@ -21,8 +21,10 @@ state with **Zustand**. The Git backend shells out to the system `git` through
 - **Commit and push only when explicitly asked.** Never do it on your own
   initiative.
 - **Always work on a branch + pull request — never commit to `main` directly.**
-  Create a branch named `tckp/<topic>` (`tckp` = teckperry) for every change and
-  open a PR to `main`. `main` moves only through merged PRs (and release tags).
+  Create a branch named `<slug>/<topic>` — where `<slug>` is the contributor's
+  short handle (e.g. `tckp` for teckperry) and `<topic>` describes the change —
+  and open a PR to `main`. `main` moves only through merged PRs (and release
+  tags).
 - **The build must be green before committing.** Run `npm run build` (it runs
   `typecheck` + the electron-vite build) and fix any error first.
 - **Never hardcode colors or identity.** They live in one place (see Branding).
@@ -97,15 +99,15 @@ Business logic goes in a `src/main/services/*` module, not inline in `ipc.ts`.
 
 Follow this loop for each task:
 
-1. **Branch** — from an up-to-date `main`, create `tckp/<topic>` (`tckp` =
-   teckperry). Never work on `main`.
+1. **Branch** — from an up-to-date `main`, create `<slug>/<topic>` (`<slug>` is
+   your short handle, e.g. `tckp` for teckperry). Never work on `main`.
 2. **Understand** — read the relevant files before changing anything.
 3. **Implement** — follow the rules above; keep each change focused.
 4. **Verify** — `npm run build` must pass; offer to run the app for visual
    changes.
 5. **Commit** — only when asked; one cohesive change per commit, Conventional
    Commits.
-6. **Push & PR** — only when asked: push the `tckp/<topic>` branch and open a
+6. **Push & PR** — only when asked: push the `<slug>/<topic>` branch and open a
    pull request to `main` (`gh pr create`). Do not push to `main` directly; the
    user reviews/merges the PR.
 7. **Ask: "Do you want to publish a new tag?"** (after the PR is merged into
