@@ -225,7 +225,10 @@ function CommitRow({
   useLayoutEffect(() => {
     const el = rowRef.current
     if (!el) return
-    const h = el.offsetHeight
+    // clientHeight (content box) excludes the 1px bottom border; offsetHeight
+    // would include it and, since rowH feeds the SVG height, the row would
+    // grow by 1px on every re-measure (e.g. each refresh).
+    const h = el.clientHeight
     setRowH((prev) => (prev !== h ? h : prev))
   }, [commit.refs, graphWidth])
 
