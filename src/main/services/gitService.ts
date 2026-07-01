@@ -519,8 +519,31 @@ export const gitService = {
     await git(repoPath).deleteLocalBranch(name, force)
   },
 
+  /**
+   * Rename a local branch. If it tracked a remote branch, the rename is
+   * propagated: the new name is pushed (and set as upstream) and the old remote
+   * branch is deleted, so the branch is renamed everywhere — not just locally.
+   */
   async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
-    await git(repoPath).raw(['branch', '-m', oldName, newName])
+    const g = git(repoPath)
+    // Read the upstream (e.g. "origin/old") before renaming.
+    let upstream = ''
+    try {
+      upstream = (await g.raw(['rev-parse', '--abbrev-ref', `${oldName}@{upstream}`])).trim()
+    } catch {
+      upstream = '' // no upstream configured
+    }
+    await g.raw(['branch', '-m', oldName, newName])
+
+    const slash = upstream.indexOf('/')
+    if (upstream && slash > 0) {
+      const remote = upstream.slice(0, slash)
+      const oldRemoteBranch = upstream.slice(slash + 1)
+      // Push the new name first (so the branch always exists on the remote),
+      // then remove the old remote branch.
+      await g.raw(['push', '--set-upstream', remote, newName])
+      await g.raw(['push', remote, '--delete', oldRemoteBranch])
+    }
   },
 
   /** Delete a branch on its remote. `remoteRef` is like "origin/feature/x". */

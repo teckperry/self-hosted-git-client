@@ -660,7 +660,7 @@ function buildBranchMenu(
         setModal(
           <PromptModal
             title="Rename branch"
-            label={`New name for "${local}"`}
+            label={`New name for "${local}" (also renamed on the remote if it's tracked)`}
             initialValue={local}
             confirmText="Rename"
             onConfirm={(name) => {
