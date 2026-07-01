@@ -172,8 +172,8 @@ function BranchRow({
           onClick: () =>
             setConfirm({
               title: 'Delete branch',
-              message: `Delete the branch "${branch.name}"?`,
-              onConfirm: () => store().deleteBranch(branch.name, false)
+              message: `Delete the branch "${branch.name}"? It is removed even if not fully merged (e.g. after a squash merge); recoverable from git's reflog.`,
+              onConfirm: () => store().deleteBranch(branch.name, true)
             })
         }
       ]

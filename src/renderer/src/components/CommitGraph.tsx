@@ -570,10 +570,10 @@ function buildRefMenu(
             setModal(
               <ConfirmModal
                 title="Delete branch"
-                message={`Delete the branch "${ref.name}"?`}
+                message={`Delete the branch "${ref.name}"?\nIt is removed even if not fully merged (e.g. after a squash merge); recoverable from git's reflog.`}
                 danger
                 confirmText="Delete"
-                onConfirm={() => store().deleteBranch(ref.name, false)}
+                onConfirm={() => store().deleteBranch(ref.name, true)}
                 onClose={close}
               />
             )
