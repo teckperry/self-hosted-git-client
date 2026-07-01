@@ -24,6 +24,20 @@ const RECORD = '\x1e'
 // with the changes highlighted, not just the changed hunks.
 const FULL_CONTEXT = '-U100000'
 
+/**
+ * Build a child-process environment from the current one plus overrides, with
+ * the variables simple-git refuses for safety removed. simple-git blocks a
+ * PAGER/GIT_PAGER coming through `.env()` (a hostile pager could run arbitrary
+ * commands: "Use of PAGER is not permitted without enabling allowUnsafePager"),
+ * so we strip them — we never need a pager for the commands we run anyway.
+ */
+function childEnv(overrides: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = { ...process.env } as Record<string, string>
+  delete env.PAGER
+  delete env.GIT_PAGER
+  return { ...env, ...overrides }
+}
+
 /** Caches one SimpleGit instance per repository path. */
 const cache = new Map<string, SimpleGit>()
 
@@ -493,12 +507,9 @@ export const gitService = {
     args.push('-m', message)
     // A fresh instance so the author-preserving env doesn't leak into the
     // cached SimpleGit used by every other operation.
-    const fresh = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).env({
-      ...process.env,
-      GIT_AUTHOR_NAME: an,
-      GIT_AUTHOR_EMAIL: ae,
-      GIT_AUTHOR_DATE: ad
-    })
+    const fresh = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).env(
+      childEnv({ GIT_AUTHOR_NAME: an, GIT_AUTHOR_EMAIL: ae, GIT_AUTHOR_DATE: ad })
+    )
     const newHash = (await fresh.raw(args)).trim()
     await g.raw(['update-ref', 'HEAD', newHash, oldHead])
   },
