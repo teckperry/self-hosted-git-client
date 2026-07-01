@@ -17,7 +17,8 @@ import type {
   CloneOptions,
   PushOptions,
   MergeState,
-  MergeOperation
+  MergeOperation,
+  UndoInfo
 } from '@shared/types'
 
 const FIELD = '\x1f'
@@ -597,6 +598,53 @@ export const gitService = {
 
   async revertCommit(repoPath: string, hash: string): Promise<void> {
     await git(repoPath).raw(['revert', '--no-edit', hash])
+  },
+
+  /**
+   * Describe the last operation that moved the current branch tip, read from
+   * the branch's own reflog. Using the branch reflog (not HEAD's) means plain
+   * checkouts — which don't change the branch — are ignored, so undo only ever
+   * targets commit/reset/merge/rebase/amend-style actions. null when there's
+   * nothing to undo or HEAD is detached.
+   */
+  async lastBranchAction(repoPath: string): Promise<UndoInfo | null> {
+    const g = git(repoPath)
+    let branch = ''
+    try {
+      branch = (await g.raw(['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim()
+    } catch {
+      branch = ''
+    }
+    if (!branch) return null
+    let raw = ''
+    try {
+      raw = await g.raw(['reflog', 'show', `--format=%gs${FIELD}%h${FIELD}%s`, '-n', '2', branch])
+    } catch {
+      return null
+    }
+    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+    if (lines.length < 2) return null // fewer than 2 entries: nothing before the current tip
+    const action = lines[0].split(FIELD)[0]
+    const prev = lines[1].split(FIELD)
+    return { branch, action, target: prev[1], subject: prev[2] ?? '' }
+  },
+
+  /**
+   * Undo that last action by moving the current branch back to its previous
+   * tip with `git reset --soft` — pointer-only, so the index and working tree
+   * are never touched and no work can be lost (an undone commit's changes come
+   * back as staged, ready to re-commit).
+   */
+  async undoLastBranchAction(repoPath: string): Promise<void> {
+    const g = git(repoPath)
+    let branch = ''
+    try {
+      branch = (await g.raw(['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim()
+    } catch {
+      branch = ''
+    }
+    if (!branch) throw new Error('Cannot undo in a detached HEAD state.')
+    await g.raw(['reset', '--soft', `${branch}@{1}`])
   },
 
   async cherryPick(repoPath: string, hash: string): Promise<void> {

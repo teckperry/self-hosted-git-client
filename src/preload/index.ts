@@ -20,7 +20,8 @@ import type {
   AppSession,
   UpdateInfo,
   MergeState,
-  MergeOperation
+  MergeOperation,
+  UndoInfo
 } from '@shared/types'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<IpcResult<T>> =>
@@ -100,6 +101,9 @@ const api = {
     invoke<void>(Channels.abortOperation, path, op),
   continueOperation: (path: string, op: MergeOperation) =>
     invoke<void>(Channels.continueOperation, path, op),
+  lastBranchAction: (path: string) =>
+    invoke<UndoInfo | null>(Channels.lastBranchAction, path),
+  undoLastBranchAction: (path: string) => invoke<void>(Channels.undoLastBranchAction, path),
   resetTo: (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),

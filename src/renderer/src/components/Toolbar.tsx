@@ -7,7 +7,8 @@ import {
   Archive,
   ArchiveRestore,
   GitMerge,
-  PanelLeft
+  PanelLeft,
+  Undo2
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Button, IconButton } from './ui'
@@ -29,8 +30,11 @@ export function Toolbar(): React.JSX.Element {
   const toggleSidebar = useStore((s) => s.toggleSidebar)
   const pushRejected = useStore((s) => s.pushRejected)
   const dismissPushRejected = useStore((s) => s.dismissPushRejected)
+  const undoInfo = useStore((s) => s.undoInfo)
+  const undoLastAction = useStore((s) => s.undoLastAction)
 
   const [branchModal, setBranchModal] = useState(false)
+  const [undoModal, setUndoModal] = useState(false)
 
   const ahead = status?.ahead ?? 0
   const behind = status?.behind ?? 0
@@ -96,6 +100,16 @@ export function Toolbar(): React.JSX.Element {
         <ArchiveRestore size={15} /> Pop
       </Button>
 
+      <div className="w-px h-6 bg-app-border mx-1.5" />
+
+      <IconButton
+        title={undoInfo ? `Undo: ${undoInfo.action}` : 'Nothing to undo'}
+        onClick={() => setUndoModal(true)}
+        disabled={busy || !undoInfo}
+      >
+        <Undo2 size={16} />
+      </IconButton>
+
       <div className="flex-1" />
 
       {status && (
@@ -134,6 +148,16 @@ export function Toolbar(): React.JSX.Element {
           danger
           onConfirm={() => push({ ...pushRejected, force: true })}
           onClose={dismissPushRejected}
+        />
+      )}
+
+      {undoModal && undoInfo && (
+        <ConfirmModal
+          title="Undo last action"
+          message={`This undoes:\n"${undoInfo.action}"\n\n${undoInfo.branch} moves back to ${undoInfo.target} (${undoInfo.subject}).\n\nNothing is lost — it's a soft reset, so your files stay put and an undone commit's changes return as staged.`}
+          confirmText="Undo"
+          onConfirm={() => undoLastAction()}
+          onClose={() => setUndoModal(false)}
         />
       )}
     </div>

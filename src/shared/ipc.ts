@@ -58,6 +58,8 @@ export const Channels = {
   markConflictResolved: 'git:markConflictResolved',
   abortOperation: 'git:abortOperation',
   continueOperation: 'git:continueOperation',
+  lastBranchAction: 'git:lastBranchAction',
+  undoLastBranchAction: 'git:undoLastBranchAction',
   resetTo: 'git:resetTo',
   revertCommit: 'git:revertCommit',
   cherryPick: 'git:cherryPick',
