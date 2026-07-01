@@ -12,6 +12,7 @@ import { StatusBar } from './components/StatusBar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SshManager } from './components/SshManager'
 import { Toast } from './components/Toast'
+import { UpdateBanner } from './components/UpdateBanner'
 
 export default function App(): React.JSX.Element {
   const repo = useStore((s) => s.repo)
@@ -20,6 +21,7 @@ export default function App(): React.JSX.Element {
   const sidebarOpen = useStore((s) => s.sidebarOpen)
   const loadRecent = useStore((s) => s.loadRecent)
   const restoreSession = useStore((s) => s.restoreSession)
+  const checkForUpdate = useStore((s) => s.checkForUpdate)
   const [sshOpen, setSshOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(560)
   const dragging = useRef(false)
@@ -30,6 +32,13 @@ export default function App(): React.JSX.Element {
     loadRecent()
     restoreSession()
   }, [loadRecent, restoreSession])
+
+  // Check for a newer release on startup, then periodically (every 6h).
+  useEffect(() => {
+    checkForUpdate()
+    const id = setInterval(() => checkForUpdate(), 6 * 60 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [checkForUpdate])
 
   // Global arrow-key navigation: ↑/↓ move within the focused list,
   // ←/→ switch focus between the commit list and the file list.
@@ -91,6 +100,7 @@ export default function App(): React.JSX.Element {
   return (
     <div className="h-screen flex flex-col bg-app-bg text-app-text">
       <TitleBar onOpenSsh={() => setSshOpen(true)} />
+      <UpdateBanner />
 
       {repo ? (
         <>

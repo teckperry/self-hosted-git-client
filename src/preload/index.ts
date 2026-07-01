@@ -17,7 +17,8 @@ import type {
   SshKey,
   GenerateSshKeyOptions,
   RecentRepo,
-  AppSession
+  AppSession,
+  UpdateInfo
 } from '@shared/types'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<IpcResult<T>> =>
@@ -33,6 +34,8 @@ const api = {
   getSession: () => invoke<AppSession>(Channels.getSession),
   setSession: (openRepos: string[], activeRepo: string | null) =>
     invoke<void>(Channels.setSession, openRepos, activeRepo),
+  checkForUpdate: () => invoke<UpdateInfo | null>(Channels.checkForUpdate),
+  downloadUpdate: (url: string) => invoke<string>(Channels.downloadUpdate, url),
 
   // repo lifecycle
   openRepo: (path: string) => invoke<RepoInfo>(Channels.openRepo, path),

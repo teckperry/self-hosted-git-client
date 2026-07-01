@@ -164,3 +164,16 @@ export interface AppSession {
   openRepos: string[]
   activeRepo: string | null
 }
+
+/** A newer release available on GitHub (only returned when current is outdated). */
+export interface UpdateInfo {
+  /** latest version, without the leading "v" */
+  version: string
+  /** the version currently running */
+  current: string
+  /** the release page URL */
+  releaseUrl: string
+  /** direct download URL for this OS's installer, or null if none matched */
+  assetUrl: string | null
+  assetName: string | null
+}

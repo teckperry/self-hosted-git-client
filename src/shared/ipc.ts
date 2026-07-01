@@ -10,6 +10,8 @@ export const Channels = {
   openExternal: 'app:openExternal',
   getSession: 'app:getSession',
   setSession: 'app:setSession',
+  checkForUpdate: 'app:checkForUpdate',
+  downloadUpdate: 'app:downloadUpdate',
 
   // repo lifecycle
   openRepo: 'git:openRepo',

@@ -12,7 +12,8 @@ import type {
   Tag,
   DiffFile,
   FileChange,
-  PushOptions
+  PushOptions,
+  UpdateInfo
 } from '@shared/types'
 
 export type Selection =
@@ -40,6 +41,9 @@ interface AppState {
   theme: ThemeMode
   sidebarOpen: boolean
   focusZone: 'commits' | 'files'
+  // update notification
+  update: UpdateInfo | null
+  updateDownloading: boolean
   /** When true, the full-page diff editor replaces the commit graph. */
   editorOpen: boolean
   diffViewMode: DiffViewMode
@@ -70,6 +74,9 @@ interface AppState {
   navigateCommits: (dir: -1 | 1) => void
   navigateFiles: (dir: -1 | 1) => void
   showToast: (t: Toast | null) => void
+  checkForUpdate: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  dismissUpdate: () => void
   loadRecent: () => Promise<void>
   pickAndOpenRepo: () => Promise<void>
   pickAndCloneRepo: (url: string) => Promise<void>
@@ -130,6 +137,8 @@ export const useStore = create<AppState>()((set, get) => ({
   focusZone: 'commits',
   editorOpen: false,
   diffViewMode: 'inline',
+  update: null,
+  updateDownloading: false,
 
   commits: [],
   status: null,
@@ -208,6 +217,36 @@ export const useStore = create<AppState>()((set, get) => ({
       }, 3500)
     }
   },
+
+  checkForUpdate: async () => {
+    try {
+      const info = await call(api.checkForUpdate())
+      set({ update: info })
+    } catch {
+      /* offline or API error — ignore */
+    }
+  },
+
+  downloadUpdate: async () => {
+    const u = get().update
+    if (!u) return
+    if (!u.assetUrl) {
+      // No installer matched this OS — fall back to the release page.
+      api.openExternal(u.releaseUrl).catch(() => {})
+      return
+    }
+    set({ updateDownloading: true })
+    try {
+      await call(api.downloadUpdate(u.assetUrl))
+      get().showToast({ kind: 'success', message: 'Download complete — open the installer to update' })
+    } catch (e) {
+      get().showToast({ kind: 'error', message: errMsg(e) })
+    } finally {
+      set({ updateDownloading: false })
+    }
+  },
+
+  dismissUpdate: () => set({ update: null }),
 
   loadRecent: async () => {
     try {

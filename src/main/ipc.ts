@@ -11,6 +11,7 @@ import type {
 import { gitService } from './services/gitService'
 import { sshService } from './services/sshService'
 import { store } from './services/store'
+import { updateService } from './services/updateService'
 
 /** Wrap a handler so every IPC call returns a typed { ok, data | error } envelope. */
 function handle<T>(
@@ -56,6 +57,8 @@ export function registerIpcHandlers(): void {
   handle(Channels.setSession, (openRepos: string[], activeRepo: string | null) =>
     store.setSession(openRepos, activeRepo)
   )
+  handle(Channels.checkForUpdate, () => updateService.check())
+  handle(Channels.downloadUpdate, (url: string) => updateService.download(url))
 
   // --- repo lifecycle ---
   handle(Channels.openRepo, (path: string) => gitService.openRepo(path))
