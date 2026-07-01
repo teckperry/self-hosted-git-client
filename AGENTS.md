@@ -99,18 +99,22 @@ Business logic goes in a `src/main/services/*` module, not inline in `ipc.ts`.
 
 Follow this loop for each task:
 
-1. **Branch** — from an up-to-date `main`, create `<slug>/<topic>` (`<slug>` is
+1. **Sync & report** — start with `git fetch` and always tell the user whether
+   `origin/main` has advanced (new commits) or the local branch is behind. If
+   `main` moved, update it before branching. The user must never be left unaware
+   that the remote moved.
+2. **Branch** — from an up-to-date `main`, create `<slug>/<topic>` (`<slug>` is
    your short handle, e.g. `tckp` for teckperry). Never work on `main`.
-2. **Understand** — read the relevant files before changing anything.
-3. **Implement** — follow the rules above; keep each change focused.
-4. **Verify** — `npm run build` must pass; offer to run the app for visual
+3. **Understand** — read the relevant files before changing anything.
+4. **Implement** — follow the rules above; keep each change focused.
+5. **Verify** — `npm run build` must pass; offer to run the app for visual
    changes.
-5. **Commit** — only when asked; one cohesive change per commit, Conventional
+6. **Commit** — only when asked; one cohesive change per commit, Conventional
    Commits.
-6. **Push & PR** — only when asked: push the `<slug>/<topic>` branch and open a
+7. **Push & PR** — only when asked: push the `<slug>/<topic>` branch and open a
    pull request to `main` (`gh pr create`). Do not push to `main` directly; the
    user reviews/merges the PR.
-7. **Ask: "Do you want to publish a new tag?"** (after the PR is merged into
+8. **Ask: "Do you want to publish a new tag?"** (after the PR is merged into
    `main`, since release tags are cut from `main`)
 
    When the user agrees, the agent prepares the release **locally** (do not rely
