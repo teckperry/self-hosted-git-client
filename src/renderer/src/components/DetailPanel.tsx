@@ -119,7 +119,7 @@ export function DetailPanel(): React.JSX.Element {
               }}
               spellCheck={false}
               placeholder="Commit message"
-              className="w-full min-h-[3.5rem] max-h-48 overflow-y-auto resize-y px-2 py-1.5 rounded-md bg-app-bg border border-app-border text-[12px] text-app-text/90 leading-relaxed whitespace-pre-wrap break-words outline-none focus:border-app-accent transition-colors selectable"
+              className="w-full min-h-[9rem] max-h-72 overflow-y-auto resize-none px-2.5 py-2 rounded-md bg-app-bg border border-app-border text-[12px] text-app-text/90 leading-relaxed whitespace-pre-wrap break-words outline-none focus:border-app-accent transition-colors selectable"
             />
             {dirty && (
               <div className="flex items-center justify-end gap-2 mt-1.5">
