@@ -1,10 +1,16 @@
 import React from 'react'
-import { GitBranch, KeyRound, Sun, Moon, Home, RefreshCw } from 'lucide-react'
+import { GitBranch, KeyRound, Sun, Moon, Home, RefreshCw, Settings } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { branding } from '../branding'
 import { IconButton, Spinner } from './ui'
 
-export function TitleBar({ onOpenSsh }: { onOpenSsh: () => void }): React.JSX.Element {
+export function TitleBar({
+  onOpenSsh,
+  onOpenSettings
+}: {
+  onOpenSsh: () => void
+  onOpenSettings: () => void
+}): React.JSX.Element {
   const repo = useStore((s) => s.repo)
   const theme = useStore((s) => s.theme)
   const setTheme = useStore((s) => s.setTheme)
@@ -45,6 +51,9 @@ export function TitleBar({ onOpenSsh }: { onOpenSsh: () => void }): React.JSX.El
         )}
         <IconButton title="SSH keys" onClick={onOpenSsh}>
           <KeyRound size={16} />
+        </IconButton>
+        <IconButton title="Settings" onClick={onOpenSettings}>
+          <Settings size={16} />
         </IconButton>
         <IconButton
           title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
