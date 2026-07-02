@@ -231,7 +231,7 @@ function MergePane({
   onToggle?: (ci: number) => void
 }): React.JSX.Element {
   return (
-    <div className="flex-1 min-w-0 flex flex-col">
+    <div className="flex-1 min-w-0 min-h-0 flex flex-col">
       <div className="shrink-0 px-3 py-1 text-[11px] uppercase tracking-wide text-app-muted bg-app-panel/60 border-b border-app-border">
         {title}
       </div>
