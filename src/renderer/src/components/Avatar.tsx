@@ -28,7 +28,7 @@ export function Avatar({
   title?: string
 }): React.JSX.Element {
   const [, bump] = useReducer((x: number) => x + 1, 0)
-  const url = avatarUrl(email, size * 2)
+  const url = avatarUrl(email)
 
   if (url && !failedUrls.has(url)) {
     return (
@@ -39,6 +39,7 @@ export function Avatar({
         width={size}
         height={size}
         loading="lazy"
+        decoding="async"
         draggable={false}
         onError={() => {
           failedUrls.add(url)
