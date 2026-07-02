@@ -611,9 +611,12 @@ export const gitService = {
   async mergeState(repoPath: string): Promise<MergeState> {
     const g = git(repoPath)
     const refExists = async (ref: string): Promise<boolean> => {
+      // NOTE: `git rev-parse -q --verify <missing>` exits non-zero but prints
+      // nothing, and simple-git resolves it to an empty string rather than
+      // throwing — so we must check for a returned hash, not rely on a throw.
       try {
-        await g.raw(['rev-parse', '-q', '--verify', ref])
-        return true
+        const out = (await g.raw(['rev-parse', '-q', '--verify', ref])).trim()
+        return out.length > 0
       } catch {
         return false
       }
