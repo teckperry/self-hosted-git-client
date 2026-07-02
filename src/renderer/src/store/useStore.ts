@@ -685,16 +685,28 @@ export const useStore = create<AppState>()((set, get) => ({
   pull: () => get().run('Pulling…', () => call(api.pull(get().repo!.path)), 'Pull complete'),
   fetch: () => get().run('Fetching…', () => call(api.fetch(get().repo!.path)), 'Fetch complete'),
 
-  // Silent background fetch: no busy flag, no toast. Refreshes so ahead/behind
-  // and the graph reflect the remote — the app keeps the user up to date.
+  // Silent background fetch: no busy flag. Refreshes so ahead/behind and the
+  // graph reflect the remote. When the fetch reveals new commits on the current
+  // branch's upstream, surfaces a small info toast so the user notices.
   autoFetch: async () => {
     const repo = get().repo
     if (!repo || get().busy) return
+    const before = get().status?.behind ?? 0
     try {
       await call(api.fetch(repo.path))
       await get().refreshAll()
     } catch {
-      /* offline / auth / no remote — ignore */
+      return /* offline / auth / no remote — ignore */
+    }
+    const st = get().status
+    if (st?.tracking) {
+      const gained = st.behind - before
+      if (gained > 0) {
+        get().showToast({
+          kind: 'info',
+          message: `${gained} new commit${gained === 1 ? '' : 's'} on ${st.tracking}`
+        })
+      }
     }
   },
 
