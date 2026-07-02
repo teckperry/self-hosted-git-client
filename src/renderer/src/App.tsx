@@ -49,6 +49,17 @@ export default function App(): React.JSX.Element {
     return () => clearInterval(id)
   }, [checkForUpdate])
 
+  // Reflect external git changes (e.g. commands run in a terminal) when the
+  // window regains focus — so state like an in-progress merge stays truthful.
+  useEffect(() => {
+    const onFocus = (): void => {
+      const s = useStore.getState()
+      if (s.repo && !s.busy) void s.refreshAll()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
+
   // Keep the open repo in sync with its remote: fetch shortly after opening,
   // then on the configured interval, so ahead/behind and the graph reflect
   // origin. A 0-minute interval disables auto-fetch entirely.

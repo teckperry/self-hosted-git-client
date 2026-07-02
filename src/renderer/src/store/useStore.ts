@@ -667,6 +667,9 @@ export const useStore = create<AppState>()((set, get) => ({
       if (successMsg) get().showToast({ kind: 'success', message: successMsg })
     } catch (e) {
       get().showToast({ kind: 'error', message: errMsg(e) })
+      // Sync anyway: a failed mutation may still have changed the repo (e.g.
+      // "abort" when the merge is already gone) — keep the UI truthful.
+      await get().refreshAll().catch(() => {})
     } finally {
       set({ busy: false, busyLabel: '' })
     }
