@@ -146,6 +146,8 @@ export function registerIpcHandlers(): void {
   handle(Channels.continueOperation, (path: string, op: MergeOperation) =>
     gitService.continueOperation(path, op)
   )
+  handle(Channels.lastBranchAction, (path: string) => gitService.lastBranchAction(path))
+  handle(Channels.undoLastBranchAction, (path: string) => gitService.undoLastBranchAction(path))
   handle(Channels.resetTo, (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     gitService.resetTo(path, hash, mode)
   )

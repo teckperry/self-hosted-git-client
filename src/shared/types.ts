@@ -69,6 +69,18 @@ export interface MergeState {
   conflicted: string[]
 }
 
+/** The last operation that moved the current branch tip, from its reflog. */
+export interface UndoInfo {
+  /** current branch name (undo works on a branch, not a detached HEAD) */
+  branch: string
+  /** reflog subject of the last action, e.g. "commit: fix bug" */
+  action: string
+  /** short hash the branch will move back to (its previous tip) */
+  target: string
+  /** subject line of that previous-tip commit */
+  subject: string
+}
+
 export interface Branch {
   name: string
   current: boolean

@@ -15,7 +15,8 @@ import type {
   FileChange,
   PushOptions,
   UpdateInfo,
-  MergeState
+  MergeState,
+  UndoInfo
 } from '@shared/types'
 
 /** Debounce handle for the git-backed part of the search (filenames + code). */
@@ -71,6 +72,8 @@ interface AppState {
   mergeState: MergeState | null
   /** conflicted file currently open in the 3-pane merge editor, if any */
   resolveFile: string | null
+  /** last undoable action on the current branch (null = nothing to undo) */
+  undoInfo: UndoInfo | null
 
   // repo data
   commits: Commit[]
@@ -156,6 +159,7 @@ interface AppState {
   checkoutCommit: (hash: string) => Promise<void>
   rewordHead: (message: string) => Promise<void>
   openOnRemote: (kind: 'commit' | 'branch' | 'repo', ref?: string) => Promise<void>
+  undoLastAction: () => Promise<void>
   resetTo: (hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
   revertCommit: (hash: string) => Promise<void>
   cherryPick: (hash: string) => Promise<void>
@@ -196,6 +200,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   mergeState: null,
   resolveFile: null,
+  undoInfo: null,
 
   commits: [],
   status: null,
@@ -563,15 +568,17 @@ export const useStore = create<AppState>()((set, get) => ({
     const repo = get().repo
     if (!repo) return
     const p = repo.path
-    const [commits, status, branches, remotes, stashes, tags, mergeState] = await Promise.all([
-      call(api.getCommits(p, 800)).catch(() => [] as Commit[]),
-      call(api.getStatus(p)).catch(() => null),
-      call(api.getBranches(p)).catch(() => [] as Branch[]),
-      call(api.getRemotes(p)).catch(() => [] as Remote[]),
-      call(api.getStashes(p)).catch(() => [] as Stash[]),
-      call(api.getTags(p)).catch(() => [] as Tag[]),
-      call(api.mergeState(p)).catch(() => null)
-    ])
+    const [commits, status, branches, remotes, stashes, tags, mergeState, undoInfo] =
+      await Promise.all([
+        call(api.getCommits(p, 800)).catch(() => [] as Commit[]),
+        call(api.getStatus(p)).catch(() => null),
+        call(api.getBranches(p)).catch(() => [] as Branch[]),
+        call(api.getRemotes(p)).catch(() => [] as Remote[]),
+        call(api.getStashes(p)).catch(() => [] as Stash[]),
+        call(api.getTags(p)).catch(() => [] as Tag[]),
+        call(api.mergeState(p)).catch(() => null),
+        call(api.lastBranchAction(p)).catch(() => null)
+      ])
     // keep repo header in sync (current branch may have changed)
     let repoInfo = repo
     try {
@@ -579,7 +586,7 @@ export const useStore = create<AppState>()((set, get) => ({
     } catch {
       /* ignore */
     }
-    set({ commits, status, branches, remotes, stashes, tags, mergeState, repo: repoInfo })
+    set({ commits, status, branches, remotes, stashes, tags, mergeState, undoInfo, repo: repoInfo })
 
     // revalidate current selection
     const sel = get().selection
@@ -874,6 +881,8 @@ export const useStore = create<AppState>()((set, get) => ({
       get().showToast({ kind: 'error', message: 'Could not open the browser' })
     })
   },
+  undoLastAction: () =>
+    get().run('Undoing…', () => call(api.undoLastBranchAction(get().repo!.path)), 'Last action undone'),
   resetTo: (hash, mode) =>
     get().run(`Reset --${mode}…`, () => call(api.resetTo(get().repo!.path, hash, mode)), 'Reset complete'),
   revertCommit: (hash) =>
