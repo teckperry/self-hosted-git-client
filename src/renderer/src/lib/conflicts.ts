@@ -18,11 +18,15 @@ export interface ConflictHunk {
 
 export type MergePart = ContextBlock | ConflictHunk
 
-/** Which side(s) of a conflict hunk to keep, in the result (ours before theirs). */
-export interface Choice {
-  ours: boolean
-  theirs: boolean
+/** A reference to one line of a conflict hunk, from either side. */
+export interface LineRef {
+  side: 'ours' | 'theirs'
+  /** index into that side's line array */
+  index: number
 }
+
+/** Per-conflict ordered selection of lines to keep (order = result order). */
+export type Selection = LineRef[]
 
 export function parseConflicts(text: string): MergePart[] {
   const lines = text.split('\n')
@@ -64,10 +68,10 @@ export function conflictCount(parts: MergePart[]): number {
   return parts.filter((p) => p.kind === 'conflict').length
 }
 
-/** Assemble the final file text from the per-hunk choices. */
+/** Assemble the final file text from the per-hunk ordered line selections. */
 export function assembleResult(
   parts: MergePart[],
-  choices: Choice[]
+  selections: Selection[]
 ): { text: string; unresolved: number } {
   const out: string[] = []
   let ci = 0
@@ -76,10 +80,12 @@ export function assembleResult(
     if (p.kind === 'context') {
       out.push(...p.lines)
     } else {
-      const ch = choices[ci] ?? { ours: false, theirs: false }
-      if (ch.ours) out.push(...p.ours)
-      if (ch.theirs) out.push(...p.theirs)
-      if (!ch.ours && !ch.theirs) unresolved++
+      const sel = selections[ci] ?? []
+      if (sel.length === 0) unresolved++
+      for (const ref of sel) {
+        const src = ref.side === 'ours' ? p.ours : p.theirs
+        if (ref.index < src.length) out.push(src[ref.index])
+      }
       ci++
     }
   }

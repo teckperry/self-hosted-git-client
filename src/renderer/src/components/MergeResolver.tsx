@@ -5,30 +5,36 @@ import { api, call } from '../lib/ipc'
 import { Button, Spinner } from './ui'
 import {
   parseConflicts,
-  conflictCount,
   assembleResult,
   type MergePart,
-  type Choice
+  type ConflictHunk,
+  type Selection
 } from '../lib/conflicts'
 
 type Tone = 'normal' | 'ours' | 'theirs' | 'unresolved'
+type Side = 'ours' | 'theirs'
 
 interface Row {
   type: 'code' | 'marker'
   num: number | null
   text: string
   tone: Tone
-  /** conflict index this row belongs to (for click-to-toggle), or null */
   ci: number | null
-  chosen?: boolean
+  /** index into the side's line array (code rows inside a conflict) */
+  lineIndex?: number
+  selected?: boolean
+  /** 1-based position of this line in the hunk's result order */
+  order?: number
+  /** marker rows: how many lines picked so far in this hunk */
+  picked?: number
 }
 
 /**
  * Three-pane merge editor for a single conflicted file. OURS (left) and THEIRS
  * (right) on top, the assembled RESULT below — each pane a code view with line
- * numbers and a minimap, all three scrolling together. Conflict hunks are
- * toggled per side (click a highlighted block to keep it); the result updates
- * live. Saving writes the file and stages it.
+ * numbers and a minimap, all three scrolling together. Within a conflict you
+ * click individual lines to keep them; the result takes them in click order
+ * (a badge shows each line's position). "Add all" / "Clear" act on a whole hunk.
  */
 export function MergeResolver({
   file,
@@ -42,7 +48,12 @@ export function MergeResolver({
   const resolveConflictWith = useStore((s) => s.resolveConflictWith)
 
   const [parts, setParts] = useState<MergePart[] | null>(null)
-  const [choices, setChoices] = useState<Choice[]>([])
+  const [selections, setSelections] = useState<Selection[]>([])
+
+  const conflicts = useMemo(
+    () => (parts ? (parts.filter((p) => p.kind === 'conflict') as ConflictHunk[]) : []),
+    [parts]
+  )
 
   useEffect(() => {
     if (!repoPath) return
@@ -52,7 +63,7 @@ export function MergeResolver({
         if (!alive) return
         const p = parseConflicts(text)
         setParts(p)
-        setChoices(Array.from({ length: conflictCount(p) }, () => ({ ours: false, theirs: false })))
+        setSelections(p.filter((x) => x.kind === 'conflict').map(() => []))
       })
       .catch(() => alive && setParts([]))
     return () => {
@@ -61,20 +72,55 @@ export function MergeResolver({
   }, [repoPath, file])
 
   const result = useMemo(
-    () => (parts ? assembleResult(parts, choices) : { text: '', unresolved: 0 }),
-    [parts, choices]
-  )
-  const total = choices.length
-  const toggle = useCallback(
-    (ci: number, side: 'ours' | 'theirs'): void =>
-      setChoices((prev) => prev.map((c, i) => (i === ci ? { ...c, [side]: !c[side] } : c))),
-    []
+    () => (parts ? assembleResult(parts, selections) : { text: '', unresolved: 0 }),
+    [parts, selections]
   )
 
-  // Rows for each pane (line numbers reflect each side's own file / the result).
-  const oursRows = useMemo(() => (parts ? sideRows(parts, choices, 'ours') : []), [parts, choices])
-  const theirsRows = useMemo(() => (parts ? sideRows(parts, choices, 'theirs') : []), [parts, choices])
-  const resultRows = useMemo(() => (parts ? buildResultRows(parts, choices) : []), [parts, choices])
+  const toggleLine = useCallback((ci: number, side: Side, index: number): void => {
+    setSelections((prev) =>
+      prev.map((sel, i) => {
+        if (i !== ci) return sel
+        const pos = sel.findIndex((r) => r.side === side && r.index === index)
+        return pos >= 0 ? sel.filter((_, k) => k !== pos) : [...sel, { side, index }]
+      })
+    )
+  }, [])
+
+  const addAll = useCallback(
+    (ci: number, side: Side): void => {
+      const src = side === 'ours' ? conflicts[ci]?.ours : conflicts[ci]?.theirs
+      if (!src) return
+      setSelections((prev) =>
+        prev.map((sel, i) => {
+          if (i !== ci) return sel
+          const present = new Set(sel.filter((r) => r.side === side).map((r) => r.index))
+          const additions = src
+            .map((_, idx) => idx)
+            .filter((idx) => !present.has(idx))
+            .map((idx) => ({ side, index: idx }))
+          return [...sel, ...additions]
+        })
+      )
+    },
+    [conflicts]
+  )
+
+  const clearHunk = useCallback((ci: number): void => {
+    setSelections((prev) => prev.map((sel, i) => (i === ci ? [] : sel)))
+  }, [])
+
+  const oursRows = useMemo(
+    () => (parts ? sideRows(parts, selections, 'ours') : []),
+    [parts, selections]
+  )
+  const theirsRows = useMemo(
+    () => (parts ? sideRows(parts, selections, 'theirs') : []),
+    [parts, selections]
+  )
+  const resultRows = useMemo(
+    () => (parts ? buildResultRows(parts, selections) : []),
+    [parts, selections]
+  )
 
   // Synced scrolling across the three panes (vertical + horizontal).
   const oursRef = useRef<HTMLDivElement>(null)
@@ -111,7 +157,7 @@ export function MergeResolver({
           {file}
         </span>
         <span className="text-[12px] text-app-muted shrink-0">
-          {total} conflict{total === 1 ? '' : 's'}
+          {conflicts.length} conflict{conflicts.length === 1 ? '' : 's'}
           {result.unresolved > 0 ? ` · ${result.unresolved} unresolved` : ' · all resolved'}
         </span>
         <div className="flex-1" />
@@ -119,7 +165,7 @@ export function MergeResolver({
           variant="primary"
           onClick={() => void save()}
           disabled={busy || !parts || result.unresolved > 0}
-          title={result.unresolved > 0 ? 'Pick a side for every conflict first' : 'Save and stage'}
+          title={result.unresolved > 0 ? 'Keep at least one line for every conflict' : 'Save and stage'}
         >
           <Check size={14} /> Save resolution
         </Button>
@@ -134,14 +180,15 @@ export function MergeResolver({
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">
-          {/* top: ours | theirs */}
           <div className="flex-1 min-h-0 flex">
             <MergePane
               title="Ours (current)"
               rows={oursRows}
               scrollRef={oursRef}
               onScroll={() => mirror(oursRef)}
-              onToggle={(ci) => toggle(ci, 'ours')}
+              onToggleLine={(ci, li) => toggleLine(ci, 'ours', li)}
+              onAddAll={(ci) => addAll(ci, 'ours')}
+              onClear={clearHunk}
             />
             <div className="w-px bg-app-border shrink-0" />
             <MergePane
@@ -149,10 +196,11 @@ export function MergeResolver({
               rows={theirsRows}
               scrollRef={theirsRef}
               onScroll={() => mirror(theirsRef)}
-              onToggle={(ci) => toggle(ci, 'theirs')}
+              onToggleLine={(ci, li) => toggleLine(ci, 'theirs', li)}
+              onAddAll={(ci) => addAll(ci, 'theirs')}
+              onClear={clearHunk}
             />
           </div>
-          {/* bottom: result */}
           <div className="h-[38%] min-h-[120px] border-t border-app-border flex flex-col">
             <MergePane title="Result" rows={resultRows} scrollRef={resultRef} onScroll={() => mirror(resultRef)} />
           </div>
@@ -162,8 +210,7 @@ export function MergeResolver({
   )
 }
 
-/** Build the rows for the ours/theirs pane: full file from that side. */
-function sideRows(parts: MergePart[], choices: Choice[], side: 'ours' | 'theirs'): Row[] {
+function sideRows(parts: MergePart[], selections: Selection[], side: Side): Row[] {
   const rows: Row[] = []
   let ln = 0
   let ci = -1
@@ -172,24 +219,35 @@ function sideRows(parts: MergePart[], choices: Choice[], side: 'ours' | 'theirs'
       for (const l of p.lines) rows.push({ type: 'code', num: ++ln, text: l, tone: 'normal', ci: null })
     } else {
       ci++
-      const chosen = choices[ci]?.[side] ?? false
+      const sel = selections[ci] ?? []
       const lines = side === 'ours' ? p.ours : p.theirs
       rows.push({
         type: 'marker',
         num: null,
-        text: `Conflict ${ci + 1} · ${side}${lines.length === 0 ? ' (empty)' : ''}`,
+        text: `Conflict ${ci + 1} · ${side}`,
         tone: side,
         ci,
-        chosen
+        picked: sel.filter((r) => r.side === side).length
       })
-      for (const l of lines) rows.push({ type: 'code', num: ++ln, text: l, tone: side, ci, chosen })
+      lines.forEach((l, idx) => {
+        const pos = sel.findIndex((r) => r.side === side && r.index === idx)
+        rows.push({
+          type: 'code',
+          num: ++ln,
+          text: l,
+          tone: side,
+          ci,
+          lineIndex: idx,
+          selected: pos >= 0,
+          order: pos >= 0 ? pos + 1 : undefined
+        })
+      })
     }
   }
   return rows
 }
 
-/** Build the rows for the result pane from the current choices. */
-function buildResultRows(parts: MergePart[], choices: Choice[]): Row[] {
+function buildResultRows(parts: MergePart[], selections: Selection[]): Row[] {
   const rows: Row[] = []
   let ln = 0
   let ci = -1
@@ -198,21 +256,23 @@ function buildResultRows(parts: MergePart[], choices: Choice[]): Row[] {
       for (const l of p.lines) rows.push({ type: 'code', num: ++ln, text: l, tone: 'normal', ci: null })
     } else {
       ci++
-      const ch = choices[ci] ?? { ours: false, theirs: false }
-      if (!ch.ours && !ch.theirs) {
+      const sel = selections[ci] ?? []
+      if (sel.length === 0) {
         rows.push({ type: 'marker', num: null, text: `Conflict ${ci + 1} — unresolved`, tone: 'unresolved', ci: null })
       } else {
-        if (ch.ours) for (const l of p.ours) rows.push({ type: 'code', num: ++ln, text: l, tone: 'ours', ci: null })
-        if (ch.theirs) for (const l of p.theirs) rows.push({ type: 'code', num: ++ln, text: l, tone: 'theirs', ci: null })
+        for (const ref of sel) {
+          const src = ref.side === 'ours' ? p.ours : p.theirs
+          rows.push({ type: 'code', num: ++ln, text: src[ref.index] ?? '', tone: ref.side, ci: null })
+        }
       }
     }
   }
   return rows
 }
 
-function toneClass(tone: Tone, chosen?: boolean): string {
-  if (tone === 'ours') return chosen ? 'bg-app-success/15' : 'bg-app-success/5'
-  if (tone === 'theirs') return chosen ? 'bg-app-accent/15' : 'bg-app-accent/5'
+function toneClass(tone: Tone, selected?: boolean): string {
+  if (tone === 'ours') return selected ? 'bg-app-success/20' : 'bg-app-success/5'
+  if (tone === 'theirs') return selected ? 'bg-app-accent/20' : 'bg-app-accent/5'
   if (tone === 'unresolved') return 'bg-app-warning/15 text-app-warning'
   return ''
 }
@@ -222,13 +282,17 @@ function MergePane({
   rows,
   scrollRef,
   onScroll,
-  onToggle
+  onToggleLine,
+  onAddAll,
+  onClear
 }: {
   title: string
   rows: Row[]
   scrollRef: React.RefObject<HTMLDivElement>
   onScroll: () => void
-  onToggle?: (ci: number) => void
+  onToggleLine?: (ci: number, lineIndex: number) => void
+  onAddAll?: (ci: number) => void
+  onClear?: (ci: number) => void
 }): React.JSX.Element {
   return (
     <div className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -240,44 +304,54 @@ function MergePane({
           <table className="w-max min-w-full border-collapse font-mono text-[12px] leading-[18px]">
             <tbody>
               {rows.map((r, i) => {
-                const clickable = r.ci != null && !!onToggle
-                const bg = toneClass(r.tone, r.chosen)
+                if (r.type === 'marker') {
+                  const bulk = r.ci != null && !!onAddAll
+                  return (
+                    <tr key={i} className={toneClass(r.tone)}>
+                      <td className="w-10 px-1 border-r border-app-border" />
+                      <td className="pl-2 pr-3 whitespace-pre align-top text-[10px] uppercase tracking-wide">
+                        <span className="inline-flex items-center gap-2">
+                          <span>{r.text}{r.picked ? ` · ${r.picked} kept` : ''}</span>
+                          {bulk && (
+                            <>
+                              <button
+                                onClick={() => onAddAll!(r.ci as number)}
+                                className="normal-case px-1.5 rounded border border-app-border text-app-muted hover:text-app-text hover:bg-app-hover"
+                              >
+                                Add all
+                              </button>
+                              <button
+                                onClick={() => onClear?.(r.ci as number)}
+                                className="normal-case px-1.5 rounded border border-app-border text-app-muted hover:text-app-text hover:bg-app-hover"
+                              >
+                                Clear
+                              </button>
+                            </>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                }
+                const clickable = r.ci != null && r.lineIndex != null && !!onToggleLine
                 return (
                   <tr
                     key={i}
-                    onClick={clickable ? () => onToggle!(r.ci as number) : undefined}
-                    className={`${bg} ${clickable ? 'cursor-pointer hover:brightness-110' : ''}`}
+                    onClick={clickable ? () => onToggleLine!(r.ci as number, r.lineIndex as number) : undefined}
+                    className={`${toneClass(r.tone, r.selected)} ${clickable ? 'cursor-pointer hover:brightness-125' : ''}`}
                   >
-                    <td className="w-10 px-2 text-right text-app-muted/50 select-none align-top border-r border-app-border">
-                      {r.num ?? ''}
-                    </td>
-                    {r.type === 'marker' ? (
-                      <td className="pl-2 pr-3 whitespace-pre align-top text-[10px] uppercase tracking-wide">
-                        <span className="inline-flex items-center gap-1">
-                          {r.chosen != null && (
-                            <span
-                              className={`inline-flex items-center justify-center w-3 h-3 rounded-[3px] border ${
-                                r.tone === 'ours' ? 'border-app-success' : 'border-app-accent'
-                              } ${
-                                r.chosen
-                                  ? r.tone === 'ours'
-                                    ? 'bg-app-success text-app-accent-fg'
-                                    : 'bg-app-accent text-app-accent-fg'
-                                  : ''
-                              }`}
-                            >
-                              {r.chosen && <Check size={9} />}
-                            </span>
-                          )}
-                          {r.text}
-                          {r.chosen != null && <span className="text-app-muted normal-case">— click to {r.chosen ? 'remove' : 'keep'}</span>}
+                    <td className="w-10 px-1 text-right select-none align-top border-r border-app-border">
+                      {r.selected ? (
+                        <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-app-accent text-app-accent-fg text-[10px]">
+                          {r.order}
                         </span>
-                      </td>
-                    ) : (
-                      <td className="pl-2 pr-3 whitespace-pre align-top selectable text-app-text/90">
-                        {r.text === '' ? ' ' : r.text}
-                      </td>
-                    )}
+                      ) : (
+                        <span className="text-app-muted/50">{r.num ?? ''}</span>
+                      )}
+                    </td>
+                    <td className="pl-2 pr-3 whitespace-pre align-top selectable text-app-text/90">
+                      {r.text === '' ? ' ' : r.text}
+                    </td>
                   </tr>
                 )
               })}
@@ -292,7 +366,6 @@ function MergePane({
 
 const MINIMAP_W = 72
 
-/** A tiny overview of a pane's lines with a viewport box; click/drag to scrub. */
 function PaneMinimap({
   rows,
   scrollRef
@@ -332,8 +405,9 @@ function PaneMinimap({
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
       const len = r.text.replace(/\t/g, '    ').trimEnd().length
-      if (r.tone === 'ours') ctx.fillStyle = `rgba(${su[0]},${su[1]},${su[2]},0.8)`
-      else if (r.tone === 'theirs') ctx.fillStyle = `rgba(${ac[0]},${ac[1]},${ac[2]},0.8)`
+      const alpha = r.selected ? 0.9 : r.tone === 'normal' ? 0.28 : 0.5
+      if (r.tone === 'ours') ctx.fillStyle = `rgba(${su[0]},${su[1]},${su[2]},${alpha})`
+      else if (r.tone === 'theirs') ctx.fillStyle = `rgba(${ac[0]},${ac[1]},${ac[2]},${alpha})`
       else if (r.tone === 'unresolved') ctx.fillStyle = `rgba(${wa[0]},${wa[1]},${wa[2]},0.9)`
       else {
         if (len === 0) continue
