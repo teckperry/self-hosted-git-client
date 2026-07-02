@@ -5,6 +5,7 @@ import { computeGraph, type GraphRow } from '../lib/graph'
 import { relativeTime, initials, colorFromString, dayKey, dayLabel } from '../lib/format'
 import { ContextMenu, useContextMenu, type MenuItem } from './ui'
 import { RebaseModal } from './RebaseModal'
+import { Avatar } from './Avatar'
 import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Commit, CommitRef, Stash } from '@shared/types'
 
@@ -379,13 +380,13 @@ function CommitRow({
       </div>
 
       <div className="w-40 flex items-center gap-1.5 shrink-0 pr-2">
-        <span
-          className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-semibold text-white shrink-0"
-          style={{ background: colorFromString(commit.authorEmail) }}
+        <Avatar
+          name={commit.author}
+          email={commit.authorEmail}
+          size={20}
+          fontSize={9}
           title={`${commit.author} <${commit.authorEmail}>`}
-        >
-          {initials(commit.author)}
-        </span>
+        />
         <span className="truncate text-app-muted text-[12px]">{commit.author}</span>
       </div>
       <span className="w-20 text-right text-app-muted text-[12px] shrink-0 pr-2">
