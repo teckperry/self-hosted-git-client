@@ -134,6 +134,12 @@ export function registerIpcHandlers(): void {
   handle(Channels.markConflictResolved, (path: string, file: string) =>
     gitService.markConflictResolved(path, file)
   )
+  handle(Channels.readConflictText, (path: string, file: string) =>
+    gitService.readConflictText(path, file)
+  )
+  handle(Channels.resolveConflictWith, (path: string, file: string, content: string) =>
+    gitService.resolveConflictWith(path, file, content)
+  )
   handle(Channels.abortOperation, (path: string, op: MergeOperation) =>
     gitService.abortOperation(path, op)
   )

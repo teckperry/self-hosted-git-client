@@ -650,6 +650,17 @@ export const gitService = {
     await git(repoPath).raw(['add', '--', file])
   },
 
+  /** Raw working-tree content of a conflicted file (with the conflict markers). */
+  async readConflictText(repoPath: string, file: string): Promise<string> {
+    return fs.readFile(join(repoPath, file), 'utf8')
+  },
+
+  /** Write the resolved content for a conflicted file and stage it. */
+  async resolveConflictWith(repoPath: string, file: string, content: string): Promise<void> {
+    await fs.writeFile(join(repoPath, file), content, 'utf8')
+    await git(repoPath).raw(['add', '--', file])
+  },
+
   /** Abort the in-progress merge/rebase/cherry-pick/revert. */
   async abortOperation(repoPath: string, op: MergeOperation): Promise<void> {
     await git(repoPath).raw([op, '--abort'])

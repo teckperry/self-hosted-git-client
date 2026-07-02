@@ -1,7 +1,8 @@
-import React from 'react'
-import { AlertTriangle, Check, X } from 'lucide-react'
+import React, { useState } from 'react'
+import { AlertTriangle, Check, X, Columns2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Button } from './ui'
+import { MergeResolver } from './MergeResolver'
 
 /**
  * A banner shown while a merge / rebase / cherry-pick / revert is mid-flight.
@@ -16,6 +17,7 @@ export function ConflictBar(): React.JSX.Element | null {
   const markConflictResolved = useStore((s) => s.markConflictResolved)
   const abortOperation = useStore((s) => s.abortOperation)
   const continueOperation = useStore((s) => s.continueOperation)
+  const [resolving, setResolving] = useState<string | null>(null)
 
   if (!mergeState?.operation) return null
   const { operation, conflicted } = mergeState
@@ -59,6 +61,14 @@ export function ConflictBar(): React.JSX.Element | null {
                 {file}
               </span>
               <button
+                onClick={() => setResolving(file)}
+                disabled={busy}
+                className="flex items-center gap-1 px-2 py-0.5 rounded border border-app-accent/60 text-app-accent hover:bg-app-accent hover:text-app-accent-fg transition-colors disabled:opacity-50"
+                title="Open the 3-pane merge editor to pick parts from each side"
+              >
+                <Columns2 size={12} /> Resolve…
+              </button>
+              <button
                 onClick={() => resolveConflict(file, 'ours')}
                 disabled={busy}
                 className="px-2 py-0.5 rounded border border-app-border text-app-muted hover:text-app-text hover:bg-app-hover disabled:opacity-50"
@@ -86,6 +96,8 @@ export function ConflictBar(): React.JSX.Element | null {
           ))}
         </ul>
       )}
+
+      {resolving && <MergeResolver file={resolving} onClose={() => setResolving(null)} />}
     </div>
   )
 }

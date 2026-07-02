@@ -145,6 +145,7 @@ interface AppState {
   deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
   resolveConflict: (file: string, side: 'ours' | 'theirs') => Promise<void>
+  resolveConflictWith: (file: string, content: string) => Promise<void>
   markConflictResolved: (file: string) => Promise<void>
   abortOperation: () => Promise<void>
   continueOperation: () => Promise<void>
@@ -788,6 +789,11 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run(
       `Taking ${side} for ${file}…`,
       () => call(api.resolveConflict(get().repo!.path, file, side))
+    ),
+  resolveConflictWith: (file, content) =>
+    get().run(
+      `Resolving ${file}…`,
+      () => call(api.resolveConflictWith(get().repo!.path, file, content))
     ),
   markConflictResolved: (file) =>
     get().run('Marking resolved…', () => call(api.markConflictResolved(get().repo!.path, file))),

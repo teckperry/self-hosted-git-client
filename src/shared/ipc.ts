@@ -53,6 +53,8 @@ export const Channels = {
   remoteWebUrl: 'git:remoteWebUrl',
   mergeState: 'git:mergeState',
   resolveConflict: 'git:resolveConflict',
+  readConflictText: 'git:readConflictText',
+  resolveConflictWith: 'git:resolveConflictWith',
   markConflictResolved: 'git:markConflictResolved',
   abortOperation: 'git:abortOperation',
   continueOperation: 'git:continueOperation',

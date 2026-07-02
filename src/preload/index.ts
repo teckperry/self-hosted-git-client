@@ -92,6 +92,10 @@ const api = {
     invoke<void>(Channels.resolveConflict, path, file, side),
   markConflictResolved: (path: string, file: string) =>
     invoke<void>(Channels.markConflictResolved, path, file),
+  readConflictText: (path: string, file: string) =>
+    invoke<string>(Channels.readConflictText, path, file),
+  resolveConflictWith: (path: string, file: string, content: string) =>
+    invoke<void>(Channels.resolveConflictWith, path, file, content),
   abortOperation: (path: string, op: MergeOperation) =>
     invoke<void>(Channels.abortOperation, path, op),
   continueOperation: (path: string, op: MergeOperation) =>
