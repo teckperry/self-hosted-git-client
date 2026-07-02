@@ -170,7 +170,7 @@ export function ContextMenu({
   return (
     <div
       ref={ref}
-      className="fixed z-[60] min-w-[180px] py-1 bg-app-panel border border-app-border rounded-md shadow-2xl"
+      className="fixed z-[60] min-w-[180px] py-1 bg-app-panel border border-app-border rounded-md shadow-2xl max-h-[85vh] overflow-y-auto"
       style={pos}
       onClick={(e) => e.stopPropagation()}
     >
