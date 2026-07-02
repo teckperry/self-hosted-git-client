@@ -14,7 +14,8 @@ import type {
   DiffFile,
   FileChange,
   PushOptions,
-  UpdateInfo
+  UpdateInfo,
+  MergeState
 } from '@shared/types'
 
 /** Debounce handle for the git-backed part of the search (filenames + code). */
@@ -66,6 +67,11 @@ interface AppState {
   editorSearchOpen: boolean
   editorSearchQuery: string
 
+  /** in-progress merge/rebase/cherry-pick/revert and its conflicted files */
+  mergeState: MergeState | null
+  /** conflicted file currently open in the 3-pane merge editor, if any */
+  resolveFile: string | null
+
   // repo data
   commits: Commit[]
   status: RepoStatus | null
@@ -89,6 +95,8 @@ interface AppState {
   setFocusZone: (zone: 'commits' | 'files') => void
   openEditor: () => void
   closeEditor: () => void
+  openResolve: (file: string) => void
+  closeResolve: () => void
   setDiffViewMode: (mode: DiffViewMode) => void
   navigateCommits: (dir: -1 | 1) => void
   navigateFiles: (dir: -1 | 1) => void
@@ -140,6 +148,11 @@ interface AppState {
   renameBranch: (oldName: string, newName: string) => Promise<void>
   deleteRemoteBranch: (remoteRef: string) => Promise<void>
   mergeBranch: (name: string) => Promise<void>
+  resolveConflict: (file: string, side: 'ours' | 'theirs') => Promise<void>
+  resolveConflictWith: (file: string, content: string) => Promise<void>
+  markConflictResolved: (file: string) => Promise<void>
+  abortOperation: () => Promise<void>
+  continueOperation: () => Promise<void>
   checkoutCommit: (hash: string) => Promise<void>
   rewordHead: (message: string) => Promise<void>
   openOnRemote: (kind: 'commit' | 'branch' | 'repo', ref?: string) => Promise<void>
@@ -181,6 +194,9 @@ export const useStore = create<AppState>()((set, get) => ({
   editorSearchOpen: false,
   editorSearchQuery: '',
 
+  mergeState: null,
+  resolveFile: null,
+
   commits: [],
   status: null,
   branches: [],
@@ -212,6 +228,9 @@ export const useStore = create<AppState>()((set, get) => ({
 
   openEditor: () => set({ editorOpen: true }),
   closeEditor: () => set({ editorOpen: false, editorSearchOpen: false, editorSearchQuery: '' }),
+
+  openResolve: (file) => set({ resolveFile: file }),
+  closeResolve: () => set({ resolveFile: null }),
 
   openEditorSearch: () => set({ editorSearchOpen: true }),
   closeEditorSearch: () => set({ editorSearchOpen: false, editorSearchQuery: '' }),
@@ -544,13 +563,14 @@ export const useStore = create<AppState>()((set, get) => ({
     const repo = get().repo
     if (!repo) return
     const p = repo.path
-    const [commits, status, branches, remotes, stashes, tags] = await Promise.all([
+    const [commits, status, branches, remotes, stashes, tags, mergeState] = await Promise.all([
       call(api.getCommits(p, 800)).catch(() => [] as Commit[]),
       call(api.getStatus(p)).catch(() => null),
       call(api.getBranches(p)).catch(() => [] as Branch[]),
       call(api.getRemotes(p)).catch(() => [] as Remote[]),
       call(api.getStashes(p)).catch(() => [] as Stash[]),
-      call(api.getTags(p)).catch(() => [] as Tag[])
+      call(api.getTags(p)).catch(() => [] as Tag[]),
+      call(api.mergeState(p)).catch(() => null)
     ])
     // keep repo header in sync (current branch may have changed)
     let repoInfo = repo
@@ -559,12 +579,17 @@ export const useStore = create<AppState>()((set, get) => ({
     } catch {
       /* ignore */
     }
-    set({ commits, status, branches, remotes, stashes, tags, repo: repoInfo })
+    set({ commits, status, branches, remotes, stashes, tags, mergeState, repo: repoInfo })
 
     // revalidate current selection
     const sel = get().selection
     if (sel?.type === 'commit' && !commits.find((c) => c.hash === sel.hash)) {
       set({ selection: null, commitDiff: [], selectedFilePath: null })
+    }
+    // While conflicts are unresolved, keep the working-changes panel in view so
+    // they're front and centre in the right sidebar.
+    if (mergeState && mergeState.conflicted.length > 0 && get().selection?.type !== 'wip') {
+      set({ selection: { type: 'wip' }, commitDiff: [], selectedFilePath: null })
     }
   },
 
@@ -642,6 +667,9 @@ export const useStore = create<AppState>()((set, get) => ({
       if (successMsg) get().showToast({ kind: 'success', message: successMsg })
     } catch (e) {
       get().showToast({ kind: 'error', message: errMsg(e) })
+      // Sync anyway: a failed mutation may still have changed the repo (e.g.
+      // "abort" when the merge is already gone) — keep the UI truthful.
+      await get().refreshAll().catch(() => {})
     } finally {
       set({ busy: false, busyLabel: '' })
     }
@@ -649,7 +677,13 @@ export const useStore = create<AppState>()((set, get) => ({
 
   stage: (paths) => get().run('Staging…', () => call(api.stage(get().repo!.path, paths))),
   unstage: (paths) => get().run('Unstaging…', () => call(api.unstage(get().repo!.path, paths))),
-  stageAll: () => get().run('Staging all…', () => call(api.stageAll(get().repo!.path))),
+  // Stage only the (non-conflicted) unstaged files, so conflicts are never
+  // staged with their markers — they must go through the merge editor first.
+  stageAll: () => {
+    const paths = (get().status?.unstaged ?? []).map((f) => f.path)
+    if (paths.length === 0) return Promise.resolve()
+    return get().run('Staging all…', () => call(api.stage(get().repo!.path, paths)))
+  },
   unstageAll: () => get().run('Unstaging all…', () => call(api.unstageAll(get().repo!.path))),
   discard: (file) =>
     get().run('Discarding…', () => call(api.discard(get().repo!.path, file)), 'Changes discarded'),
@@ -773,6 +807,51 @@ export const useStore = create<AppState>()((set, get) => ({
     ),
   mergeBranch: (name) =>
     get().run('Merging…', () => call(api.mergeBranch(get().repo!.path, name)), `Merged ${name}`),
+  resolveConflict: (file, side) =>
+    get().run(
+      `Taking ${side} for ${file}…`,
+      () => call(api.resolveConflict(get().repo!.path, file, side))
+    ),
+  resolveConflictWith: (file, content) =>
+    get().run(
+      `Resolving ${file}…`,
+      () => call(api.resolveConflictWith(get().repo!.path, file, content))
+    ),
+  markConflictResolved: (file) =>
+    get().run('Marking resolved…', () => call(api.markConflictResolved(get().repo!.path, file))),
+  abortOperation: async () => {
+    const op = get().mergeState?.operation
+    const repo = get().repo
+    // An abort always ends the operation — clear the banner immediately, then
+    // reconcile with git.
+    set({ mergeState: null })
+    if (!repo) return
+    if (op) {
+      set({ busy: true, busyLabel: `Aborting ${op}…` })
+      try {
+        await call(api.abortOperation(repo.path, op))
+        get().showToast({ kind: 'success', message: `${op} aborted` })
+      } catch (e) {
+        const msg = errMsg(e)
+        // "no merge/rebase to abort" just means it's already gone — not an error.
+        if (!/no .*to abort|MERGE_HEAD missing/i.test(msg)) {
+          get().showToast({ kind: 'error', message: msg })
+        }
+      } finally {
+        set({ busy: false, busyLabel: '' })
+      }
+    }
+    await get().refreshAll().catch(() => {})
+  },
+  continueOperation: () => {
+    const op = get().mergeState?.operation
+    if (!op) return Promise.resolve()
+    return get().run(
+      `Continuing ${op}…`,
+      () => call(api.continueOperation(get().repo!.path, op)),
+      `${op} continued`
+    )
+  },
   checkoutCommit: (hash) =>
     get().run('Checking out commit…', () => call(api.checkoutCommit(get().repo!.path, hash))),
   rewordHead: (message) =>

@@ -5,6 +5,8 @@ import { Toolbar } from './components/Toolbar'
 import { Sidebar } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { CommitGraph } from './components/CommitGraph'
+import { ConflictBar } from './components/ConflictBar'
+import { MergeResolver } from './components/MergeResolver'
 import { DiffEditor } from './components/DiffEditor'
 import { DetailPanel } from './components/DetailPanel'
 import { ChangesPanel } from './components/ChangesPanel'
@@ -26,6 +28,8 @@ export default function App(): React.JSX.Element {
   const checkForUpdate = useStore((s) => s.checkForUpdate)
   const autoFetch = useStore((s) => s.autoFetch)
   const autoFetchMinutes = useStore((s) => s.autoFetchMinutes)
+  const resolveFile = useStore((s) => s.resolveFile)
+  const closeResolve = useStore((s) => s.closeResolve)
   const [sshOpen, setSshOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(504)
@@ -44,6 +48,24 @@ export default function App(): React.JSX.Element {
     const id = setInterval(() => checkForUpdate(), 6 * 60 * 60 * 1000)
     return () => clearInterval(id)
   }, [checkForUpdate])
+
+  // Reflect external git changes (e.g. commands run in a terminal) when the
+  // window regains focus — so state like an in-progress merge stays truthful.
+  useEffect(() => {
+    const onFocus = (): void => {
+      const s = useStore.getState()
+      if (s.repo && !s.busy) void s.refreshAll()
+    }
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') onFocus()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 
   // Keep the open repo in sync with its remote: fetch shortly after opening,
   // then on the configured interval, so ahead/behind and the graph reflect
@@ -133,6 +155,7 @@ export default function App(): React.JSX.Element {
         <>
           <TabBar />
           <Toolbar />
+          <ConflictBar />
           <div className="flex-1 flex min-h-0">
             {sidebarOpen && <Sidebar />}
             <main className="flex-1 min-w-0 border-r border-app-border">
@@ -157,6 +180,7 @@ export default function App(): React.JSX.Element {
 
       {sshOpen && <SshManager onClose={() => setSshOpen(false)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {resolveFile && <MergeResolver file={resolveFile} onClose={closeResolve} />}
       <SearchBar />
       <Toast />
     </div>

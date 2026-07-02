@@ -18,7 +18,9 @@ import type {
   GenerateSshKeyOptions,
   RecentRepo,
   AppSession,
-  UpdateInfo
+  UpdateInfo,
+  MergeState,
+  MergeOperation
 } from '@shared/types'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<IpcResult<T>> =>
@@ -85,6 +87,19 @@ const api = {
   rewordHead: (path: string, message: string) =>
     invoke<void>(Channels.rewordHead, path, message),
   remoteWebUrl: (path: string) => invoke<string | null>(Channels.remoteWebUrl, path),
+  mergeState: (path: string) => invoke<MergeState>(Channels.mergeState, path),
+  resolveConflict: (path: string, file: string, side: 'ours' | 'theirs') =>
+    invoke<void>(Channels.resolveConflict, path, file, side),
+  markConflictResolved: (path: string, file: string) =>
+    invoke<void>(Channels.markConflictResolved, path, file),
+  readConflictText: (path: string, file: string) =>
+    invoke<string>(Channels.readConflictText, path, file),
+  resolveConflictWith: (path: string, file: string, content: string) =>
+    invoke<void>(Channels.resolveConflictWith, path, file, content),
+  abortOperation: (path: string, op: MergeOperation) =>
+    invoke<void>(Channels.abortOperation, path, op),
+  continueOperation: (path: string, op: MergeOperation) =>
+    invoke<void>(Channels.continueOperation, path, op),
   resetTo: (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),

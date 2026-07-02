@@ -15,7 +15,9 @@ import type {
   DiffFile,
   CommitOptions,
   CloneOptions,
-  PushOptions
+  PushOptions,
+  MergeState,
+  MergeOperation
 } from '@shared/types'
 
 const FIELD = '\x1f'
@@ -263,11 +265,17 @@ export const gitService = {
     const s = await git(repoPath).status()
     const staged: FileChange[] = []
     const unstaged: FileChange[] = []
+    const conflictedSet = new Set(s.conflicted)
 
     for (const file of s.files) {
       const index = file.index || ' '
       const working = file.working_dir || ' '
       const isUntracked = index === '?' && working === '?'
+
+      // Conflicted (unmerged) files are surfaced only via `conflicted` — never
+      // as staged/unstaged — so they can't be staged until the conflict is
+      // resolved through the merge editor.
+      if (conflictedSet.has(file.path) || index === 'U' || working === 'U') continue
 
       if (isUntracked) {
         unstaged.push({
@@ -593,6 +601,96 @@ export const gitService = {
 
   async cherryPick(repoPath: string, hash: string): Promise<void> {
     await git(repoPath).raw(['cherry-pick', hash])
+  },
+
+  /**
+   * Which conflict-producing operation (if any) is mid-flight, plus the list of
+   * files still unmerged. Detected from the repo's in-progress markers so we
+   * know whether to continue/abort a merge, rebase, cherry-pick or revert.
+   */
+  async mergeState(repoPath: string): Promise<MergeState> {
+    const g = git(repoPath)
+    const refExists = async (ref: string): Promise<boolean> => {
+      // NOTE: `git rev-parse -q --verify <missing>` exits non-zero but prints
+      // nothing, and simple-git resolves it to an empty string rather than
+      // throwing — so we must check for a returned hash, not rely on a throw.
+      try {
+        const out = (await g.raw(['rev-parse', '-q', '--verify', ref])).trim()
+        return out.length > 0
+      } catch {
+        return false
+      }
+    }
+    const pathExists = async (name: string): Promise<boolean> => {
+      try {
+        const rel = (await g.raw(['rev-parse', '--git-path', name])).trim()
+        const abs = rel.startsWith('/') ? rel : join(repoPath, rel)
+        await fs.access(abs)
+        return true
+      } catch {
+        return false
+      }
+    }
+    let operation: MergeState['operation'] = null
+    if ((await pathExists('rebase-merge')) || (await pathExists('rebase-apply'))) operation = 'rebase'
+    else if (await refExists('MERGE_HEAD')) operation = 'merge'
+    else if (await refExists('CHERRY_PICK_HEAD')) operation = 'cherry-pick'
+    else if (await refExists('REVERT_HEAD')) operation = 'revert'
+
+    let conflicted: string[] = []
+    try {
+      const out = await g.raw(['diff', '--name-only', '--diff-filter=U'])
+      conflicted = out.split('\n').map((s) => s.trim()).filter(Boolean)
+    } catch {
+      conflicted = []
+    }
+    return { operation, conflicted }
+  },
+
+  /** Resolve one conflicted file by taking our side or theirs, then stage it. */
+  async resolveConflict(repoPath: string, file: string, side: 'ours' | 'theirs'): Promise<void> {
+    const g = git(repoPath)
+    await g.raw(['checkout', `--${side}`, '--', file])
+    await g.raw(['add', '--', file])
+  },
+
+  /** Mark a file as resolved by staging whatever is currently in the tree. */
+  async markConflictResolved(repoPath: string, file: string): Promise<void> {
+    await git(repoPath).raw(['add', '--', file])
+  },
+
+  /** Raw working-tree content of a conflicted file (with the conflict markers). */
+  async readConflictText(repoPath: string, file: string): Promise<string> {
+    return fs.readFile(join(repoPath, file), 'utf8')
+  },
+
+  /** Write the resolved content for a conflicted file and stage it. */
+  async resolveConflictWith(repoPath: string, file: string, content: string): Promise<void> {
+    await fs.writeFile(join(repoPath, file), content, 'utf8')
+    await git(repoPath).raw(['add', '--', file])
+  },
+
+  /** Abort the in-progress merge/rebase/cherry-pick/revert. */
+  async abortOperation(repoPath: string, op: MergeOperation): Promise<void> {
+    await git(repoPath).raw([op, '--abort'])
+  },
+
+  /**
+   * Continue the in-progress operation after conflicts are staged. rebase/merge
+   * --continue open an editor for the commit message; neutralise it with a
+   * no-op editor set on THIS process (inherited by the git child) — not via
+   * simple-git's .env(), which would trip its "allowUnsafeEditor" guard on an
+   * EDITOR/GIT_EDITOR value.
+   */
+  async continueOperation(repoPath: string, op: MergeOperation): Promise<void> {
+    const prev = process.env.GIT_EDITOR
+    process.env.GIT_EDITOR = 'true'
+    try {
+      await git(repoPath).raw([op, '--continue'])
+    } finally {
+      if (prev === undefined) delete process.env.GIT_EDITOR
+      else process.env.GIT_EDITOR = prev
+    }
   },
 
   async createTag(repoPath: string, name: string, hash?: string): Promise<void> {
