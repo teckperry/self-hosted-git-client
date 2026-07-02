@@ -1,8 +1,9 @@
 import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { GitCommit, Copy, CloudOff, Pencil } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { fullDate, initials, colorFromString } from '../lib/format'
+import { fullDate } from '../lib/format'
 import { FileStatusBadge } from './FileStatusBadge'
+import { Avatar } from './Avatar'
 import type { DiffFile } from '@shared/types'
 
 export function DetailPanel(): React.JSX.Element {
@@ -85,12 +86,13 @@ export function DetailPanel(): React.JSX.Element {
       {/* metadata */}
       <div className="p-3 border-b border-app-border shrink-0">
         <div className="flex items-start gap-2">
-          <span
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0 mt-0.5"
-            style={{ background: colorFromString(commit.authorEmail) }}
-          >
-            {initials(commit.author)}
-          </span>
+          <Avatar
+            name={commit.author}
+            email={commit.authorEmail}
+            size={28}
+            fontSize={11}
+            className="mt-0.5"
+          />
           <div className="min-w-0 flex-1">
             <div className="text-app-muted text-[12px] mt-1">
               <span className="text-app-text">{commit.author}</span>{' '}
