@@ -56,8 +56,15 @@ export default function App(): React.JSX.Element {
       const s = useStore.getState()
       if (s.repo && !s.busy) void s.refreshAll()
     }
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') onFocus()
+    }
     window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   // Keep the open repo in sync with its remote: fetch shortly after opening,

@@ -821,7 +821,11 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run('Marking resolved…', () => call(api.markConflictResolved(get().repo!.path, file))),
   abortOperation: () => {
     const op = get().mergeState?.operation
-    if (!op) return Promise.resolve()
+    // An abort always ends the operation — clear the banner immediately, then
+    // reconcile with git. refreshAll (run's success or error path) fixes the
+    // rest even if the abort itself reports "nothing to abort".
+    set({ mergeState: null })
+    if (!op) return get().refreshAll()
     return get().run(`Aborting ${op}…`, () => call(api.abortOperation(get().repo!.path, op)), `${op} aborted`)
   },
   continueOperation: () => {
