@@ -49,12 +49,13 @@ export default function App(): React.JSX.Element {
     return () => clearInterval(id)
   }, [checkForUpdate])
 
-  // Reflect external git changes (e.g. commands run in a terminal) when the
-  // window regains focus — so state like an in-progress merge stays truthful.
+  // The moment the app is looked at again (focus / becomes visible), sync:
+  // refresh the local state (external git commands, in-progress merges…) and
+  // fetch from the remote (throttled inside autoFetch).
   useEffect(() => {
     const onFocus = (): void => {
       const s = useStore.getState()
-      if (s.repo && !s.busy) void s.refreshAll()
+      if (s.repo && !s.busy) void s.autoFetch()
     }
     const onVisible = (): void => {
       if (document.visibilityState === 'visible') onFocus()
@@ -67,13 +68,14 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
-  // Keep the open repo in sync with its remote: fetch shortly after opening,
-  // then on the configured interval, so ahead/behind and the graph reflect
-  // origin. A 0-minute interval disables auto-fetch entirely.
+  // Keep the open repo in sync with its remote: fetch when a repo is opened or
+  // switched to, then on the configured interval while the app sits in the
+  // background. A 0-minute interval disables the remote fetch.
   const repoPath = repo?.path
   useEffect(() => {
-    if (!repoPath || autoFetchMinutes <= 0) return
+    if (!repoPath) return
     autoFetch()
+    if (autoFetchMinutes <= 0) return
     const id = setInterval(() => autoFetch(), autoFetchMinutes * 60 * 1000)
     return () => clearInterval(id)
   }, [repoPath, autoFetch, autoFetchMinutes])

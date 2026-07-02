@@ -8,7 +8,7 @@ export interface Prefs {
 }
 
 const KEY = 'app-prefs'
-const DEFAULTS: Prefs = { theme: 'dark', autoFetchMinutes: 3 }
+const DEFAULTS: Prefs = { theme: 'dark', autoFetchMinutes: 5 }
 
 export function loadPrefs(): Prefs {
   try {

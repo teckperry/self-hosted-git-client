@@ -91,7 +91,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): React.JSX.E
           ))}
         </div>
         <span className="block text-[11px] text-app-muted mt-1">
-          How often the app quietly fetches to keep ahead/behind up to date.
+          How often the app quietly fetches while in the background. It also fetches the moment
+          the window comes back into view and when you switch repos.
         </span>
       </Field>
 
