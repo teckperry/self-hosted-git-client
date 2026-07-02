@@ -50,6 +50,7 @@ export const Channels = {
 
   checkoutCommit: 'git:checkoutCommit',
   rewordHead: 'git:rewordHead',
+  remoteWebUrl: 'git:remoteWebUrl',
   resetTo: 'git:resetTo',
   revertCommit: 'git:revertCommit',
   cherryPick: 'git:cherryPick',

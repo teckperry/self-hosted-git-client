@@ -125,6 +125,7 @@ export function registerIpcHandlers(): void {
   handle(Channels.rewordHead, (path: string, message: string) =>
     gitService.rewordHead(path, message)
   )
+  handle(Channels.remoteWebUrl, (path: string) => gitService.remoteWebUrl(path))
   handle(Channels.resetTo, (path: string, hash: string, mode: 'soft' | 'mixed' | 'hard') =>
     gitService.resetTo(path, hash, mode)
   )
