@@ -69,6 +69,8 @@ interface AppState {
 
   /** in-progress merge/rebase/cherry-pick/revert and its conflicted files */
   mergeState: MergeState | null
+  /** conflicted file currently open in the 3-pane merge editor, if any */
+  resolveFile: string | null
 
   // repo data
   commits: Commit[]
@@ -93,6 +95,8 @@ interface AppState {
   setFocusZone: (zone: 'commits' | 'files') => void
   openEditor: () => void
   closeEditor: () => void
+  openResolve: (file: string) => void
+  closeResolve: () => void
   setDiffViewMode: (mode: DiffViewMode) => void
   navigateCommits: (dir: -1 | 1) => void
   navigateFiles: (dir: -1 | 1) => void
@@ -191,6 +195,7 @@ export const useStore = create<AppState>()((set, get) => ({
   editorSearchQuery: '',
 
   mergeState: null,
+  resolveFile: null,
 
   commits: [],
   status: null,
@@ -223,6 +228,9 @@ export const useStore = create<AppState>()((set, get) => ({
 
   openEditor: () => set({ editorOpen: true }),
   closeEditor: () => set({ editorOpen: false, editorSearchOpen: false, editorSearchQuery: '' }),
+
+  openResolve: (file) => set({ resolveFile: file }),
+  closeResolve: () => set({ resolveFile: null }),
 
   openEditorSearch: () => set({ editorSearchOpen: true }),
   closeEditorSearch: () => set({ editorSearchOpen: false, editorSearchQuery: '' }),
@@ -578,6 +586,11 @@ export const useStore = create<AppState>()((set, get) => ({
     if (sel?.type === 'commit' && !commits.find((c) => c.hash === sel.hash)) {
       set({ selection: null, commitDiff: [], selectedFilePath: null })
     }
+    // While conflicts are unresolved, keep the working-changes panel in view so
+    // they're front and centre in the right sidebar.
+    if (mergeState && mergeState.conflicted.length > 0 && get().selection?.type !== 'wip') {
+      set({ selection: { type: 'wip' }, commitDiff: [], selectedFilePath: null })
+    }
   },
 
   selectCommit: async (hash) => {
@@ -661,7 +674,13 @@ export const useStore = create<AppState>()((set, get) => ({
 
   stage: (paths) => get().run('Staging…', () => call(api.stage(get().repo!.path, paths))),
   unstage: (paths) => get().run('Unstaging…', () => call(api.unstage(get().repo!.path, paths))),
-  stageAll: () => get().run('Staging all…', () => call(api.stageAll(get().repo!.path))),
+  // Stage only the (non-conflicted) unstaged files, so conflicts are never
+  // staged with their markers — they must go through the merge editor first.
+  stageAll: () => {
+    const paths = (get().status?.unstaged ?? []).map((f) => f.path)
+    if (paths.length === 0) return Promise.resolve()
+    return get().run('Staging all…', () => call(api.stage(get().repo!.path, paths)))
+  },
   unstageAll: () => get().run('Unstaging all…', () => call(api.unstageAll(get().repo!.path))),
   discard: (file) =>
     get().run('Discarding…', () => call(api.discard(get().repo!.path, file)), 'Changes discarded'),

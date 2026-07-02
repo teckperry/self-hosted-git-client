@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { CommitGraph } from './components/CommitGraph'
 import { ConflictBar } from './components/ConflictBar'
+import { MergeResolver } from './components/MergeResolver'
 import { DiffEditor } from './components/DiffEditor'
 import { DetailPanel } from './components/DetailPanel'
 import { ChangesPanel } from './components/ChangesPanel'
@@ -27,6 +28,8 @@ export default function App(): React.JSX.Element {
   const checkForUpdate = useStore((s) => s.checkForUpdate)
   const autoFetch = useStore((s) => s.autoFetch)
   const autoFetchMinutes = useStore((s) => s.autoFetchMinutes)
+  const resolveFile = useStore((s) => s.resolveFile)
+  const closeResolve = useStore((s) => s.closeResolve)
   const [sshOpen, setSshOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [rightWidth, setRightWidth] = useState(504)
@@ -159,6 +162,7 @@ export default function App(): React.JSX.Element {
 
       {sshOpen && <SshManager onClose={() => setSshOpen(false)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {resolveFile && <MergeResolver file={resolveFile} onClose={closeResolve} />}
       <SearchBar />
       <Toast />
     </div>

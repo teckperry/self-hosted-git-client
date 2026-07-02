@@ -265,11 +265,17 @@ export const gitService = {
     const s = await git(repoPath).status()
     const staged: FileChange[] = []
     const unstaged: FileChange[] = []
+    const conflictedSet = new Set(s.conflicted)
 
     for (const file of s.files) {
       const index = file.index || ' '
       const working = file.working_dir || ' '
       const isUntracked = index === '?' && working === '?'
+
+      // Conflicted (unmerged) files are surfaced only via `conflicted` — never
+      // as staged/unstaged — so they can't be staged until the conflict is
+      // resolved through the merge editor.
+      if (conflictedSet.has(file.path) || index === 'U' || working === 'U') continue
 
       if (isUntracked) {
         unstaged.push({

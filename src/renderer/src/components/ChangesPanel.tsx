@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, Minus, Undo2, Check } from 'lucide-react'
+import { Plus, Minus, Undo2, Check, AlertTriangle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { FileStatusBadge } from './FileStatusBadge'
 import { Button } from './ui'
@@ -19,6 +19,7 @@ export function ChangesPanel(): React.JSX.Element {
   const busy = useStore((s) => s.busy)
   const setFocusZone = useStore((s) => s.setFocusZone)
   const openEditor = useStore((s) => s.openEditor)
+  const openResolve = useStore((s) => s.openResolve)
 
   const [message, setMessage] = useState('')
   const [amend, setAmend] = useState(false)
@@ -46,6 +47,31 @@ export function ChangesPanel(): React.JSX.Element {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Conflicts — must be resolved (via the merge editor) before staging */}
+      {status.conflicted.length > 0 && (
+        <div className="shrink-0 border-b-2 border-app-warning/40">
+          <ListHeader title={`Conflicts (${status.conflicted.length})`} action={null} />
+          <div className="max-h-44 overflow-auto">
+            {status.conflicted.map((path) => (
+              <button
+                key={`c-${path}`}
+                onClick={() => openResolve(path)}
+                className="flex items-center gap-2 w-full px-3 py-1 text-left text-[12px] bg-app-warning/10 hover:bg-app-warning/20 border-l-2 border-app-warning"
+                title="Resolve this conflict in the merge editor"
+              >
+                <AlertTriangle size={13} className="text-app-warning shrink-0" />
+                <span className="truncate flex-1 text-app-text" title={path}>
+                  {path}
+                </span>
+                <span className="text-[10px] uppercase tracking-wide text-app-warning shrink-0">
+                  Resolve
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Unstaged — dedicated container */}
       <div className="flex-1 min-h-0 flex flex-col border-b-2 border-app-border">
         <ListHeader
