@@ -546,7 +546,12 @@ export const gitService = {
   },
 
   async fetch(repoPath: string): Promise<void> {
-    await git(repoPath).fetch(['--all', '--prune'])
+    // Own instance: a slow network fetch must not occupy a slot in the cached
+    // instance's process queue, where it would delay reads and user actions.
+    await simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).fetch([
+      '--all',
+      '--prune'
+    ])
   },
 
   async checkoutBranch(repoPath: string, name: string, isRemote = false): Promise<void> {

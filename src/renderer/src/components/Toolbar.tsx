@@ -18,6 +18,7 @@ export function Toolbar(): React.JSX.Element {
   const status = useStore((s) => s.status)
   const repo = useStore((s) => s.repo)
   const busy = useStore((s) => s.busy)
+  const syncing = useStore((s) => s.syncing)
   const fetch = useStore((s) => s.fetch)
   const pull = useStore((s) => s.pull)
   const push = useStore((s) => s.push)
@@ -51,7 +52,16 @@ export function Toolbar(): React.JSX.Element {
   }
 
   return (
-    <div className="flex items-center gap-1 h-12 px-3 bg-app-panel border-b border-app-border shrink-0">
+    <div className="relative flex items-center gap-1 h-12 px-3 bg-app-panel border-b border-app-border shrink-0">
+      {/* background-sync indicator: thin sweeping bar on the bottom edge */}
+      {syncing && (
+        <div
+          className="absolute left-0 right-0 bottom-0 h-0.5 overflow-hidden pointer-events-none"
+          title="Fetching from remote…"
+        >
+          <div className="sync-sweep h-full w-1/4 bg-app-accent/70 rounded-full" />
+        </div>
+      )}
       <IconButton
         title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
         onClick={toggleSidebar}

@@ -77,3 +77,16 @@ textarea {
 button {
   font-family: inherit;
 }
+
+/* Indeterminate sweep for the background-sync bar (Toolbar bottom edge). */
+@keyframes sync-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.sync-sweep {
+  animation: sync-sweep 1.2s ease-in-out infinite;
+}
