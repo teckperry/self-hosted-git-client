@@ -47,6 +47,8 @@ interface AppState {
   loadingRepo: boolean
   busy: boolean
   busyLabel: string
+  /** true while a background remote fetch is running (non-blocking) */
+  syncing: boolean
   toast: Toast | null
   /** set when a normal push was rejected (non-fast-forward); holds the opts to retry with force */
   pushRejected: PushOptions | null
@@ -186,6 +188,7 @@ export const useStore = create<AppState>()((set, get) => ({
   loadingRepo: false,
   busy: false,
   busyLabel: '',
+  syncing: false,
   toast: null,
   pushRejected: null,
   theme: loadPrefs().theme,
@@ -747,30 +750,37 @@ export const useStore = create<AppState>()((set, get) => ({
   // graph reflect the remote. When the fetch reveals new commits on the current
   // branch's upstream, surfaces a small info toast so the user notices.
   // Background sync, triggered by the timer, when the window becomes visible
-  // and when switching repos. Always refreshes the local repo data; on top of
-  // that it fetches from the remote — at most once every 15s per repo so the
-  // overlapping triggers don't hammer the server. Shows a toast when the fetch
-  // reveals new commits on the tracked upstream. autoFetchMinutes = 0 disables
-  // the remote fetch (the local refresh still happens).
+  // and when switching repos. The local refresh runs FIRST so the UI reacts
+  // instantly; only then the remote fetch happens in the background (with the
+  // `syncing` indicator, at most once every 15s per repo so the overlapping
+  // triggers don't hammer the server), followed by a second refresh to pick up
+  // what it brought in. Shows a toast when new commits appear on the tracked
+  // upstream. autoFetchMinutes = 0 disables the remote fetch entirely.
   autoFetch: async () => {
     const repo = get().repo
     if (!repo || get().busy) return
     const now = Date.now()
     const doFetch =
       get().autoFetchMinutes > 0 && now - (lastAutoFetch.get(repo.path) ?? 0) >= 15_000
-    const before = get().status?.behind ?? 0
-    let fetched = false
-    if (doFetch) {
-      lastAutoFetch.set(repo.path, now)
-      try {
-        await call(api.fetch(repo.path))
-        fetched = true
-      } catch {
-        /* offline / auth / no remote — still refresh below */
-      }
-    }
+
+    // 1. Local truth immediately — never gated on the network.
     await get().refreshAll().catch(() => {})
-    if (!fetched) return
+    if (!doFetch) return
+
+    // 2. Network fetch in the background.
+    lastAutoFetch.set(repo.path, now)
+    const before = get().status?.behind ?? 0
+    set({ syncing: true })
+    try {
+      await call(api.fetch(repo.path))
+    } catch {
+      return /* offline / auth / no remote — local state is already fresh */
+    } finally {
+      set({ syncing: false })
+    }
+
+    // 3. Fold in whatever the fetch brought.
+    await get().refreshAll().catch(() => {})
     const st = get().status
     if (st?.tracking) {
       const gained = st.behind - before
