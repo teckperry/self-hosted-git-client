@@ -16,7 +16,8 @@ import type {
   PushOptions,
   UpdateInfo,
   MergeState,
-  UndoInfo
+  UndoInfo,
+  RebaseTodoItem
 } from '@shared/types'
 
 /** Debounce handle for the git-backed part of the search (filenames + code). */
@@ -163,6 +164,7 @@ interface AppState {
   resetTo: (hash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<void>
   revertCommit: (hash: string) => Promise<void>
   cherryPick: (hash: string) => Promise<void>
+  rebaseInteractive: (onto: string, todo: RebaseTodoItem[]) => Promise<void>
   createTag: (name: string, hash?: string) => Promise<void>
   deleteTag: (name: string) => Promise<void>
   stashSave: (message: string) => Promise<void>
@@ -889,6 +891,26 @@ export const useStore = create<AppState>()((set, get) => ({
     get().run('Reverting…', () => call(api.revertCommit(get().repo!.path, hash)), 'Revert created'),
   cherryPick: (hash) =>
     get().run('Cherry-picking…', () => call(api.cherryPick(get().repo!.path, hash)), 'Cherry-pick complete'),
+  rebaseInteractive: async (onto, todo) => {
+    const repo = get().repo
+    if (!repo || get().busy) return
+    set({ busy: true, busyLabel: 'Rebasing…' })
+    try {
+      await call(api.rebaseInteractive(repo.path, onto, todo))
+      await get().refreshAll()
+      get().showToast({ kind: 'success', message: 'Rebase complete' })
+    } catch (e) {
+      await get().refreshAll().catch(() => {})
+      // A conflict leaves the rebase in progress — the merge editor takes over.
+      if (get().mergeState?.operation === 'rebase') {
+        get().showToast({ kind: 'info', message: 'Rebase paused — resolve the conflicts' })
+      } else {
+        get().showToast({ kind: 'error', message: errMsg(e) })
+      }
+    } finally {
+      set({ busy: false, busyLabel: '' })
+    }
+  },
   createTag: (name, hash) =>
     get().run('Creating tag…', () => call(api.createTag(get().repo!.path, name, hash)), `Tag ${name} created`),
   deleteTag: (name) =>

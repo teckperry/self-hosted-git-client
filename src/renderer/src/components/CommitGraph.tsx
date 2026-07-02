@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { computeGraph, type GraphRow } from '../lib/graph'
 import { relativeTime, initials, colorFromString, dayKey, dayLabel } from '../lib/format'
 import { ContextMenu, useContextMenu, type MenuItem } from './ui'
+import { RebaseModal } from './RebaseModal'
 import { ConfirmModal, PromptModal } from './PromptModal'
 import type { Commit, CommitRef, Stash } from '@shared/types'
 
@@ -832,6 +833,14 @@ function buildMenu(commit: Commit, setModal: (n: React.ReactNode) => void): Menu
     { label: '', separator: true, onClick: () => {} },
     { label: 'Revert (create inverse commit)', onClick: () => store().revertCommit(commit.hash) },
     { label: 'Cherry-pick onto current branch', onClick: () => store().cherryPick(commit.hash) },
+    { label: '', separator: true, onClick: () => {} },
+    {
+      label: 'Interactive rebase (base = this commit)…',
+      onClick: () =>
+        setModal(
+          <RebaseModal onto={commit.hash} ontoShort={commit.shortHash} onClose={close} />
+        )
+    },
     { label: '', separator: true, onClick: () => {} },
     { label: 'Open in browser', onClick: () => store().openOnRemote('commit', commit.hash) },
     {

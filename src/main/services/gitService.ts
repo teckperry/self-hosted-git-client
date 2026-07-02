@@ -1,6 +1,7 @@
 import { simpleGit, SimpleGit } from 'simple-git'
 import { promises as fs } from 'fs'
 import { join, basename } from 'path'
+import { tmpdir } from 'os'
 import { parseUnifiedDiff } from './diffParser'
 import type {
   RepoInfo,
@@ -18,7 +19,9 @@ import type {
   PushOptions,
   MergeState,
   MergeOperation,
-  UndoInfo
+  UndoInfo,
+  RebaseCommit,
+  RebaseTodoItem
 } from '@shared/types'
 
 const FIELD = '\x1f'
@@ -649,6 +652,56 @@ export const gitService = {
 
   async cherryPick(repoPath: string, hash: string): Promise<void> {
     await git(repoPath).raw(['cherry-pick', hash])
+  },
+
+  /** The commits in `onto`..HEAD, oldest first — the range an interactive rebase edits. */
+  async getRebaseCommits(repoPath: string, onto: string): Promise<RebaseCommit[]> {
+    const fmt = ['%H', '%h', '%s'].join(FIELD)
+    let out = ''
+    try {
+      out = await git(repoPath).raw(['log', '--reverse', `--format=${fmt}`, `${onto}..HEAD`])
+    } catch {
+      return []
+    }
+    return out
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [hash, shortHash, subject] = l.split(FIELD)
+        return { hash, shortHash, subject: subject ?? '' }
+      })
+  },
+
+  /**
+   * Run an interactive rebase onto `onto` with a scripted todo (reorder / drop /
+   * squash / fixup). The todo is fed through GIT_SEQUENCE_EDITOR by copying a
+   * temp file over git's todo, and GIT_EDITOR is neutralised so squash keeps the
+   * auto-combined message without prompting. Env is set on this process (not via
+   * simple-git's .env(), which blocks EDITOR/SEQUENCE_EDITOR). If it stops on a
+   * conflict, the rebase stays in progress and the merge editor takes over.
+   */
+  async rebaseInteractive(repoPath: string, onto: string, todo: RebaseTodoItem[]): Promise<void> {
+    const lines = todo.filter((t) => t.action !== 'drop').map((t) => `${t.action} ${t.hash}`)
+    if (lines.length === 0) throw new Error('Nothing to rebase — every commit was dropped.')
+    if (todo.filter((t) => t.action !== 'drop')[0].action !== 'pick') {
+      throw new Error('The first kept commit must be "pick" (nothing to squash into).')
+    }
+    const todoPath = join(tmpdir(), `shgc-rebase-todo-${Date.now()}`)
+    await fs.writeFile(todoPath, lines.join('\n') + '\n', 'utf8')
+    const prevSeq = process.env.GIT_SEQUENCE_EDITOR
+    const prevEd = process.env.GIT_EDITOR
+    process.env.GIT_SEQUENCE_EDITOR = `cp ${JSON.stringify(todoPath)}`
+    process.env.GIT_EDITOR = 'true'
+    try {
+      await git(repoPath).raw(['rebase', '-i', onto])
+    } finally {
+      if (prevSeq === undefined) delete process.env.GIT_SEQUENCE_EDITOR
+      else process.env.GIT_SEQUENCE_EDITOR = prevSeq
+      if (prevEd === undefined) delete process.env.GIT_EDITOR
+      else process.env.GIT_EDITOR = prevEd
+      await fs.unlink(todoPath).catch(() => {})
+    }
   },
 
   /**

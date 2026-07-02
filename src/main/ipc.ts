@@ -7,7 +7,8 @@ import type {
   CloneOptions,
   PushOptions,
   GenerateSshKeyOptions,
-  MergeOperation
+  MergeOperation,
+  RebaseTodoItem
 } from '@shared/types'
 import { gitService } from './services/gitService'
 import { sshService } from './services/sshService'
@@ -155,6 +156,12 @@ export function registerIpcHandlers(): void {
     gitService.revertCommit(path, hash)
   )
   handle(Channels.cherryPick, (path: string, hash: string) => gitService.cherryPick(path, hash))
+  handle(Channels.getRebaseCommits, (path: string, onto: string) =>
+    gitService.getRebaseCommits(path, onto)
+  )
+  handle(Channels.rebaseInteractive, (path: string, onto: string, todo: RebaseTodoItem[]) =>
+    gitService.rebaseInteractive(path, onto, todo)
+  )
   handle(Channels.createTag, (path: string, name: string, hash?: string) =>
     gitService.createTag(path, name, hash)
   )

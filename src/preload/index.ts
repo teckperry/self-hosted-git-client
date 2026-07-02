@@ -21,7 +21,9 @@ import type {
   UpdateInfo,
   MergeState,
   MergeOperation,
-  UndoInfo
+  UndoInfo,
+  RebaseCommit,
+  RebaseTodoItem
 } from '@shared/types'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<IpcResult<T>> =>
@@ -108,6 +110,10 @@ const api = {
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),
   cherryPick: (path: string, hash: string) => invoke<void>(Channels.cherryPick, path, hash),
+  getRebaseCommits: (path: string, onto: string) =>
+    invoke<RebaseCommit[]>(Channels.getRebaseCommits, path, onto),
+  rebaseInteractive: (path: string, onto: string, todo: RebaseTodoItem[]) =>
+    invoke<void>(Channels.rebaseInteractive, path, onto, todo),
   createTag: (path: string, name: string, hash?: string) =>
     invoke<void>(Channels.createTag, path, name, hash),
   deleteTag: (path: string, name: string) => invoke<void>(Channels.deleteTag, path, name),

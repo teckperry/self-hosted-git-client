@@ -69,6 +69,21 @@ export interface MergeState {
   conflicted: string[]
 }
 
+/** One commit in an interactive-rebase plan. */
+export interface RebaseCommit {
+  hash: string
+  shortHash: string
+  subject: string
+}
+
+export type RebaseAction = 'pick' | 'squash' | 'fixup' | 'drop'
+
+/** One line of the interactive-rebase todo (ordered oldest-first for git). */
+export interface RebaseTodoItem {
+  action: RebaseAction
+  hash: string
+}
+
 /** The last operation that moved the current branch tip, from its reflog. */
 export interface UndoInfo {
   /** current branch name (undo works on a branch, not a detached HEAD) */
