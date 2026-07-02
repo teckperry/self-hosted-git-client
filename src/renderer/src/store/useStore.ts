@@ -819,14 +819,29 @@ export const useStore = create<AppState>()((set, get) => ({
     ),
   markConflictResolved: (file) =>
     get().run('Marking resolved…', () => call(api.markConflictResolved(get().repo!.path, file))),
-  abortOperation: () => {
+  abortOperation: async () => {
     const op = get().mergeState?.operation
+    const repo = get().repo
     // An abort always ends the operation — clear the banner immediately, then
-    // reconcile with git. refreshAll (run's success or error path) fixes the
-    // rest even if the abort itself reports "nothing to abort".
+    // reconcile with git.
     set({ mergeState: null })
-    if (!op) return get().refreshAll()
-    return get().run(`Aborting ${op}…`, () => call(api.abortOperation(get().repo!.path, op)), `${op} aborted`)
+    if (!repo) return
+    if (op) {
+      set({ busy: true, busyLabel: `Aborting ${op}…` })
+      try {
+        await call(api.abortOperation(repo.path, op))
+        get().showToast({ kind: 'success', message: `${op} aborted` })
+      } catch (e) {
+        const msg = errMsg(e)
+        // "no merge/rebase to abort" just means it's already gone — not an error.
+        if (!/no .*to abort|MERGE_HEAD missing/i.test(msg)) {
+          get().showToast({ kind: 'error', message: msg })
+        }
+      } finally {
+        set({ busy: false, busyLabel: '' })
+      }
+    }
+    await get().refreshAll().catch(() => {})
   },
   continueOperation: () => {
     const op = get().mergeState?.operation
