@@ -63,6 +63,9 @@ export const Channels = {
   resetTo: 'git:resetTo',
   revertCommit: 'git:revertCommit',
   cherryPick: 'git:cherryPick',
+  rebaseBase: 'git:rebaseBase',
+  getRebaseCommits: 'git:getRebaseCommits',
+  rebaseInteractive: 'git:rebaseInteractive',
   createTag: 'git:createTag',
   deleteTag: 'git:deleteTag',
 
