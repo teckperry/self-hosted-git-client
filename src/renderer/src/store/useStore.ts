@@ -23,6 +23,9 @@ import type {
 /** Debounce handle for the git-backed part of the search (filenames + code). */
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
 
+/** Last background fetch per repo path — throttles the focus/switch triggers. */
+const lastAutoFetch = new Map<string, number>()
+
 export type Selection =
   | { type: 'commit'; hash: string }
   | { type: 'wip' }
@@ -743,16 +746,31 @@ export const useStore = create<AppState>()((set, get) => ({
   // Silent background fetch: no busy flag. Refreshes so ahead/behind and the
   // graph reflect the remote. When the fetch reveals new commits on the current
   // branch's upstream, surfaces a small info toast so the user notices.
+  // Background sync, triggered by the timer, when the window becomes visible
+  // and when switching repos. Always refreshes the local repo data; on top of
+  // that it fetches from the remote — at most once every 15s per repo so the
+  // overlapping triggers don't hammer the server. Shows a toast when the fetch
+  // reveals new commits on the tracked upstream. autoFetchMinutes = 0 disables
+  // the remote fetch (the local refresh still happens).
   autoFetch: async () => {
     const repo = get().repo
     if (!repo || get().busy) return
+    const now = Date.now()
+    const doFetch =
+      get().autoFetchMinutes > 0 && now - (lastAutoFetch.get(repo.path) ?? 0) >= 15_000
     const before = get().status?.behind ?? 0
-    try {
-      await call(api.fetch(repo.path))
-      await get().refreshAll()
-    } catch {
-      return /* offline / auth / no remote — ignore */
+    let fetched = false
+    if (doFetch) {
+      lastAutoFetch.set(repo.path, now)
+      try {
+        await call(api.fetch(repo.path))
+        fetched = true
+      } catch {
+        /* offline / auth / no remote — still refresh below */
+      }
     }
+    await get().refreshAll().catch(() => {})
+    if (!fetched) return
     const st = get().status
     if (st?.tracking) {
       const gained = st.behind - before
