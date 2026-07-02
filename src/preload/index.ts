@@ -110,6 +110,7 @@ const api = {
     invoke<void>(Channels.resetTo, path, hash, mode),
   revertCommit: (path: string, hash: string) => invoke<void>(Channels.revertCommit, path, hash),
   cherryPick: (path: string, hash: string) => invoke<void>(Channels.cherryPick, path, hash),
+  rebaseBase: (path: string) => invoke<string | null>(Channels.rebaseBase, path),
   getRebaseCommits: (path: string, onto: string) =>
     invoke<RebaseCommit[]>(Channels.getRebaseCommits, path, onto),
   rebaseInteractive: (path: string, onto: string, todo: RebaseTodoItem[]) =>

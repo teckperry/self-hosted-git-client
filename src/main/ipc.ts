@@ -156,6 +156,7 @@ export function registerIpcHandlers(): void {
     gitService.revertCommit(path, hash)
   )
   handle(Channels.cherryPick, (path: string, hash: string) => gitService.cherryPick(path, hash))
+  handle(Channels.rebaseBase, (path: string) => gitService.rebaseBase(path))
   handle(Channels.getRebaseCommits, (path: string, onto: string) =>
     gitService.getRebaseCommits(path, onto)
   )

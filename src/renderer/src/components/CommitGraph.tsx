@@ -653,6 +653,12 @@ function buildBranchMenu(
       disabled: isCurrent,
       onClick: () => store().mergeBranch(primary)
     },
+    {
+      label: 'Interactive rebase…',
+      // Rebase operates on HEAD, so only for the branch we're actually on.
+      disabled: !isCurrent,
+      onClick: () => setModal(<RebaseModal onClose={close} />)
+    },
     { label: '', separator: true, onClick: () => {} },
     { label: 'Open in browser', onClick: () => store().openOnRemote('branch', group.base) },
     { label: 'Copy name', onClick: () => navigator.clipboard.writeText(group.base) }

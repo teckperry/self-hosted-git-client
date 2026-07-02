@@ -654,6 +654,39 @@ export const gitService = {
     await git(repoPath).raw(['cherry-pick', hash])
   },
 
+  /**
+   * A sensible default base for interactive-rebasing the current branch: the
+   * fork point from its upstream, or from the default branch (main/master).
+   * null when it can't be determined (e.g. no upstream and already on main).
+   */
+  async rebaseBase(repoPath: string): Promise<string | null> {
+    const g = git(repoPath)
+    const head = (await g.raw(['rev-parse', 'HEAD'])).trim()
+    // Prefer the upstream fork point.
+    try {
+      const up = (await g.raw(['rev-parse', '--verify', '-q', '@{upstream}'])).trim()
+      if (up) {
+        const mb = (await g.raw(['merge-base', 'HEAD', '@{upstream}'])).trim()
+        if (mb && mb !== head) return mb
+      }
+    } catch {
+      /* no upstream */
+    }
+    // Fall back to the fork point from the default branch.
+    for (const base of ['main', 'master']) {
+      try {
+        const b = (await g.raw(['rev-parse', '--verify', '-q', base])).trim()
+        if (b && b !== head) {
+          const mb = (await g.raw(['merge-base', 'HEAD', base])).trim()
+          if (mb && mb !== head) return mb
+        }
+      } catch {
+        /* branch doesn't exist */
+      }
+    }
+    return null
+  },
+
   /** The commits in `onto`..HEAD, oldest first — the range an interactive rebase edits. */
   async getRebaseCommits(repoPath: string, onto: string): Promise<RebaseCommit[]> {
     const fmt = ['%H', '%h', '%s'].join(FIELD)

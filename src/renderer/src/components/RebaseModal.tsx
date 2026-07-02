@@ -26,22 +26,43 @@ const ACTIONS: { value: RebaseAction; label: string }[] = [
  * runs the rebase; any conflicts are handled by the merge editor.
  */
 export function RebaseModal({
-  onto,
-  ontoShort,
+  onto: ontoProp,
+  ontoShort: ontoShortProp,
   onClose
 }: {
-  onto: string
-  ontoShort: string
+  /** base commit; when omitted the branch's fork point is used */
+  onto?: string
+  ontoShort?: string
   onClose: () => void
 }): React.JSX.Element {
   const repoPath = useStore((s) => s.repo?.path)
   const busy = useStore((s) => s.busy)
   const rebaseInteractive = useStore((s) => s.rebaseInteractive)
 
+  const [onto, setOnto] = useState<string | null>(ontoProp ?? null)
+  const [noBase, setNoBase] = useState(false)
   const [items, setItems] = useState<Item[] | null>(null)
 
+  // When no explicit base was given (branch menu), resolve the fork point.
   useEffect(() => {
-    if (!repoPath) return
+    if (!repoPath || ontoProp) return
+    let alive = true
+    call(api.rebaseBase(repoPath))
+      .then((base) => {
+        if (!alive) return
+        if (base) setOnto(base)
+        else setNoBase(true)
+      })
+      .catch(() => alive && setNoBase(true))
+    return () => {
+      alive = false
+    }
+  }, [repoPath, ontoProp])
+
+  const ontoShort = ontoShortProp ?? (onto ? onto.slice(0, 7) : '')
+
+  useEffect(() => {
+    if (!repoPath || !onto) return
     let alive = true
     call(api.getRebaseCommits(repoPath, onto))
       .then((commits) => {
@@ -75,10 +96,11 @@ export function RebaseModal({
   )
   const kept = todo.filter((t) => t.action !== 'drop')
   const firstNotPick = kept.length > 0 && kept[0].action !== 'pick'
-  const canStart = !!items && items.length > 0 && kept.length > 0 && !firstNotPick && !busy
+  const canStart =
+    !!onto && !!items && items.length > 0 && kept.length > 0 && !firstNotPick && !busy
 
   const start = async (): Promise<void> => {
-    if (!canStart) return
+    if (!canStart || !onto) return
     await rebaseInteractive(onto, todo)
     onClose()
   }
@@ -92,7 +114,12 @@ export function RebaseModal({
         one below it.
       </p>
 
-      {items === null ? (
+      {noBase ? (
+        <p className="py-6 text-center text-[13px] text-app-muted">
+          Couldn&apos;t find a base for this branch. Right-click a specific commit and choose
+          &ldquo;Interactive rebase (base = this commit)&rdquo; instead.
+        </p>
+      ) : items === null ? (
         <div className="flex items-center justify-center py-8 text-app-muted text-[13px]">
           <Spinner /> <span className="ml-2">Loading commits…</span>
         </div>
