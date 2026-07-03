@@ -464,6 +464,9 @@ export const useStore = create<AppState>()((set, get) => ({
       editorOpen: false
     })
     await get().refreshAll()
+    // If the user already switched again, stop — selecting here would act on
+    // the newer repo's data.
+    if (get().repo?.path !== info.path) return
     // default selection: working changes if dirty, else latest commit
     const st = get().status
     if (st && !st.isClean) await get().selectWip()
@@ -598,6 +601,11 @@ export const useStore = create<AppState>()((set, get) => ({
         call(api.mergeState(p)).catch(() => null),
         call(api.lastBranchAction(p)).catch(() => null)
       ])
+    // The user may have switched repos while the reads were in flight. Applying
+    // stale results now would overwrite the new repo's state and flip `repo`
+    // back, which retriggers the sync effects and ping-pongs between the two
+    // repos forever — drop them instead.
+    if (get().repo?.path !== p) return
     // keep repo header in sync (current branch may have changed)
     let repoInfo = repo
     try {
@@ -605,6 +613,7 @@ export const useStore = create<AppState>()((set, get) => ({
     } catch {
       /* ignore */
     }
+    if (get().repo?.path !== p) return
     set({ commits, status, branches, remotes, stashes, tags, mergeState, undoInfo, repo: repoInfo })
 
     // revalidate current selection
@@ -757,9 +766,6 @@ export const useStore = create<AppState>()((set, get) => ({
   pull: () => get().run('Pulling…', () => call(api.pull(get().repo!.path)), 'Pull complete'),
   fetch: () => get().run('Fetching…', () => call(api.fetch(get().repo!.path)), 'Fetch complete'),
 
-  // Silent background fetch: no busy flag. Refreshes so ahead/behind and the
-  // graph reflect the remote. When the fetch reveals new commits on the current
-  // branch's upstream, surfaces a small info toast so the user notices.
   // Background sync, triggered by the timer, when the window becomes visible
   // and when switching repos. The local refresh runs FIRST so the UI reacts
   // instantly; only then the remote fetch happens in the background (with the
@@ -767,31 +773,35 @@ export const useStore = create<AppState>()((set, get) => ({
   // triggers don't hammer the server), followed by a second refresh to pick up
   // what it brought in. Shows a toast when new commits appear on the tracked
   // upstream. autoFetchMinutes = 0 disables the remote fetch entirely.
+  // Every await is followed by a staleness check: if the user switched repos
+  // meanwhile, this run stops instead of acting on the wrong repo.
   autoFetch: async () => {
     const repo = get().repo
     if (!repo || get().busy) return
+    const p = repo.path
     const now = Date.now()
-    const doFetch =
-      get().autoFetchMinutes > 0 && now - (lastAutoFetch.get(repo.path) ?? 0) >= 15_000
+    const doFetch = get().autoFetchMinutes > 0 && now - (lastAutoFetch.get(p) ?? 0) >= 15_000
 
     // 1. Local truth immediately — never gated on the network.
     await get().refreshAll().catch(() => {})
-    if (!doFetch) return
+    if (!doFetch || get().repo?.path !== p) return
 
     // 2. Network fetch in the background.
-    lastAutoFetch.set(repo.path, now)
+    lastAutoFetch.set(p, now)
     const before = get().status?.behind ?? 0
     set({ syncing: true })
     try {
-      await call(api.fetch(repo.path))
+      await call(api.fetch(p))
     } catch {
       return /* offline / auth / no remote — local state is already fresh */
     } finally {
       set({ syncing: false })
     }
+    if (get().repo?.path !== p) return
 
     // 3. Fold in whatever the fetch brought.
     await get().refreshAll().catch(() => {})
+    if (get().repo?.path !== p) return
     const st = get().status
     if (st?.tracking) {
       const gained = st.behind - before
