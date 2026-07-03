@@ -20,6 +20,7 @@ no account, no telemetry, no cloud, no lock-in.
 </div>
 
 ---
+- [Mautic](https://www.mautic.org) - Open-source, self-hostable marketing automation platform for campaigns, segmentation, and customer journeys.
 
 ## Why this client?
 
