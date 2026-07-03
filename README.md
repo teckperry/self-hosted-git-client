@@ -188,6 +188,27 @@ to compile. UI and main process communicate over typed IPC only.
 
 Nothing else needs to change.
 
+## Disclaimer
+
+This is an **independent, non-commercial project**. It is **not affiliated
+with, endorsed by, or sponsored by** any company, product or service. It does
+not aim to compete with any commercial offering, and it **uses no third-party
+trademarks**: any names that appear in this repository (such as GitHub) belong
+to their respective owners and are mentioned solely to describe
+interoperability.
+
+## Contributing
+
+This project is **free** and maintained in spare time — updates land **when
+they can, as they can**. That's exactly why your help matters:
+
+- 🐛 Found a bug? **[Open an issue](../../issues)** — even a short report helps.
+- 💡 Want something the app doesn't do yet? **Propose it** in an issue.
+- 🔧 Feel like coding? **Pull requests are very welcome**, for fixes big and
+  small.
+
+We're genuinely happy every time someone opens an issue or a PR. 💙
+
 ## License
 
 [MIT](LICENSE) — free for everyone, forever.
