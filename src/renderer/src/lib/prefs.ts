@@ -5,10 +5,12 @@ export interface Prefs {
   theme: ThemeMode
   /** background auto-fetch interval in minutes; 0 disables it */
   autoFetchMinutes: number
+  /** how the diff editor opens by default */
+  defaultDiffView: 'inline' | 'split'
 }
 
 const KEY = 'app-prefs'
-const DEFAULTS: Prefs = { theme: 'dark', autoFetchMinutes: 5 }
+const DEFAULTS: Prefs = { theme: 'dark', autoFetchMinutes: 5, defaultDiffView: 'split' }
 
 export function loadPrefs(): Prefs {
   try {
@@ -20,7 +22,8 @@ export function loadPrefs(): Prefs {
         autoFetchMinutes:
           typeof p.autoFetchMinutes === 'number' && p.autoFetchMinutes >= 0
             ? p.autoFetchMinutes
-            : DEFAULTS.autoFetchMinutes
+            : DEFAULTS.autoFetchMinutes,
+        defaultDiffView: p.defaultDiffView === 'inline' ? 'inline' : 'split'
       }
     }
   } catch {

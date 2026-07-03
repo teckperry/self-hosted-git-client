@@ -63,6 +63,8 @@ interface AppState {
   /** When true, the full-page diff editor replaces the commit graph. */
   editorOpen: boolean
   diffViewMode: DiffViewMode
+  /** the view the diff editor opens with (persisted preference) */
+  defaultDiffView: DiffViewMode
   // search (Cmd/Ctrl+F): highlight matching commits, dim the rest
   searchOpen: boolean
   searchQuery: string
@@ -100,6 +102,7 @@ interface AppState {
   // actions
   setTheme: (t: ThemeMode) => void
   setAutoFetchMinutes: (n: number) => void
+  setDefaultDiffView: (mode: DiffViewMode) => void
   toggleSidebar: () => void
   setFocusZone: (zone: 'commits' | 'files') => void
   openEditor: () => void
@@ -196,7 +199,8 @@ export const useStore = create<AppState>()((set, get) => ({
   sidebarOpen: false,
   focusZone: 'commits',
   editorOpen: false,
-  diffViewMode: 'inline',
+  diffViewMode: loadPrefs().defaultDiffView,
+  defaultDiffView: loadPrefs().defaultDiffView,
   update: null,
   updateDownloading: false,
   searchOpen: false,
@@ -227,12 +231,19 @@ export const useStore = create<AppState>()((set, get) => ({
   setTheme: (t) => {
     applyBranding(t)
     set({ theme: t })
-    savePrefs({ theme: t, autoFetchMinutes: get().autoFetchMinutes })
+    savePrefs({ theme: t, autoFetchMinutes: get().autoFetchMinutes, defaultDiffView: get().defaultDiffView })
   },
 
   setAutoFetchMinutes: (n) => {
     set({ autoFetchMinutes: n })
-    savePrefs({ theme: get().theme, autoFetchMinutes: n })
+    savePrefs({ theme: get().theme, autoFetchMinutes: n, defaultDiffView: get().defaultDiffView })
+  },
+
+  setDefaultDiffView: (mode) => {
+    // Update the preference and switch the current editor view along with it,
+    // so the choice is visible immediately.
+    set({ defaultDiffView: mode, diffViewMode: mode })
+    savePrefs({ theme: get().theme, autoFetchMinutes: get().autoFetchMinutes, defaultDiffView: mode })
   },
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
