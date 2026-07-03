@@ -4,6 +4,7 @@ import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import type { SshKey, GenerateSshKeyOptions } from '@shared/types'
+import { assertSafeSshKeyName } from '../security'
 
 const run = promisify(execFile)
 const SSH_DIR = join(homedir(), '.ssh')
@@ -67,6 +68,7 @@ export const sshService = {
   },
 
   async generateKey(opts: GenerateSshKeyOptions): Promise<SshKey> {
+    assertSafeSshKeyName(opts.fileName)
     await ensureSshDir()
     const target = join(SSH_DIR, opts.fileName)
     // refuse to overwrite an existing key
@@ -86,6 +88,7 @@ export const sshService = {
   },
 
   async deleteKey(name: string): Promise<void> {
+    assertSafeSshKeyName(name)
     const priv = join(SSH_DIR, name)
     const pub = join(SSH_DIR, `${name}.pub`)
     await fs.rm(priv, { force: true })

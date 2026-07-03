@@ -2,8 +2,20 @@ import { app, BrowserWindow, shell, nativeTheme } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
+import { isSafeExternalUrl } from './security'
 
 const isDev = !app.isPackaged
+
+/** Same protocol + host — i.e. a navigation that stays inside the app itself. */
+function isSameOrigin(a: string, b: string): boolean {
+  try {
+    const x = new URL(a)
+    const y = new URL(b)
+    return x.protocol === y.protocol && x.host === y.host
+  } catch {
+    return false
+  }
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -17,19 +29,33 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webviewTag: false
     }
   })
 
   win.on('ready-to-show', () => win.show())
 
-  // Open external links in the user's default browser.
+  // Open external links in the user's default browser — but only real web/mail
+  // URLs, never file:// or custom protocols that could launch an OS handler.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // The window only ever shows the app's own content. Any attempt to navigate
+  // the top frame elsewhere (a stray link, an injected redirect) is blocked;
+  // safe web URLs are handed to the browser instead of loading in-app.
+  win.webContents.on('will-navigate', (event, url) => {
+    if (isSameOrigin(url, win.webContents.getURL())) return
+    event.preventDefault()
+    if (isSafeExternalUrl(url)) shell.openExternal(url)
+  })
+
+  // We never embed <webview> — refuse any attempt to attach one.
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
