@@ -453,6 +453,9 @@ export const useStore = create<AppState>()((set, get) => ({
       editorOpen: false
     })
     await get().refreshAll()
+    // If the user already switched again, stop — selecting here would act on
+    // the newer repo's data.
+    if (get().repo?.path !== info.path) return
     // default selection: working changes if dirty, else latest commit
     const st = get().status
     if (st && !st.isClean) await get().selectWip()
