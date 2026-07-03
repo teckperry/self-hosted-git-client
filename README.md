@@ -15,9 +15,7 @@ no account, no telemetry, no cloud, no lock-in.
 
 **[Download](#download)** · **[Features](#features)** · **[Keyboard shortcuts](#keyboard-shortcuts)** · **[Development](#development)**
 
-<!-- Drop a screenshot at docs/screenshot.png and uncomment:
-<img src="docs/screenshot.png" alt="Self-hosted Git Client" width="820" />
--->
+<img src="docs/screenshot.png" alt="The commit graph with branch lanes, day grouping and the commit detail panel" width="860" />
 
 </div>
 
@@ -26,7 +24,7 @@ no account, no telemetry, no cloud, no lock-in.
 ## Why this client?
 
 - 🔒 **Local-first and private.** Your repositories never leave your machine.
-  The app talks to your remotes with *your* git and *your* SSH keys — there is
+  The app talks to your remotes with _your_ git and _your_ SSH keys — there is
   no account to create and nothing is phoned home. Even author avatars are
   resolved without an API call or a third-party service.
 - 🧰 **Everything included.** From everyday staging and pushing to interactive
@@ -40,11 +38,11 @@ no account, no telemetry, no cloud, no lock-in.
 
 Grab the installer for your OS from the [**Releases**](../../releases/latest) page:
 
-| OS | File | Notes |
-| --- | --- | --- |
-| **macOS** | `.dmg` | Pick **arm64** (Apple Silicon) or **x64** (Intel). Drag into Applications. |
-| **Windows** | `.exe` | Run the installer. |
-| **Linux** | `.AppImage` / `.deb` | `chmod +x *.AppImage` and run, or install the `.deb`. |
+| OS          | File                 | Notes                                                                      |
+| ----------- | -------------------- | -------------------------------------------------------------------------- |
+| **macOS**   | `.dmg`               | Pick **arm64** (Apple Silicon) or **x64** (Intel). Drag into Applications. |
+| **Windows** | `.exe`               | Run the installer.                                                         |
+| **Linux**   | `.AppImage` / `.deb` | `chmod +x *.AppImage` and run, or install the `.deb`.                      |
 
 The app **checks for new releases by itself** and offers the download when one
 is available.
@@ -57,7 +55,7 @@ allow it once:
 
 - **macOS**: right-click the app → **Open** → **Open** (or System Settings →
   Privacy & Security → **Open Anyway**). If macOS reports the app as
-  *damaged*, clear the quarantine flag once:
+  _damaged_, clear the quarantine flag once:
 
   ```bash
   xattr -cr "/Applications/Self-hosted Git Client.app"
@@ -72,6 +70,7 @@ Prefer to build it yourself? See [Development](#development).
 ## Features
 
 ### 🌳 History at a glance
+
 A colored commit **graph** with lanes for every branch, merge edges, and
 commits **grouped by day**. The current branch is highlighted, unpushed commits
 are marked, labels are consolidated (local/remote icons instead of duplicate
@@ -79,19 +78,24 @@ refs) and clickable — double-click a branch label to check it out. Authors sho
 their **GitHub avatar**, derived locally from the commit email.
 
 ### ✅ Commit with confidence
+
 Dedicated **staged / unstaged** panels with per-file stage, unstage and
 discard. Commit with **amend**, and edit the last commit's message **inline**
-in the detail panel — no dialogs, just an *Update description* button.
+in the detail panel — no dialogs, just an _Update description_ button.
 
 ### 🔀 Merge conflicts, solved visually
+
 When a merge, rebase, cherry-pick or revert stops on conflicts, the files light
-up in the sidebar. One click opens a **three-pane merge editor** — *ours* and
-*theirs* on top, the live **result** below — where you pick whole sides or
+up in the sidebar. One click opens a **three-pane merge editor** — _ours_ and
+_theirs_ on top, the live **result** below — where you pick whole sides or
 **individual lines, in the order you click them**, with line numbers, minimaps
 and synchronized scrolling. Conflicted files can't be staged until resolved;
 **Continue / Abort** drive the operation from a slim banner.
 
+<img src="docs/screenshot-merge.png" alt="The three-pane merge editor with per-line picks and the live result" width="860" />
+
 ### 🕰️ Rewrite history safely
+
 **Interactive rebase** from the branch label or any commit: reorder, **squash,
 fixup, drop** from a visual planner. **Undo** reverses the last branch action
 (commit, reset, merge…) via the reflog — a soft reset, so nothing is ever
@@ -100,6 +104,7 @@ included. When a push is rejected after rewriting history, the app offers a
 safe **force-push with lease**.
 
 ### 🔄 Always in sync
+
 Push / Pull / Fetch with **ahead/behind** counters. The app **auto-fetches**
 in the background — on a timer, the moment the window comes back into view,
 and when you switch repos — without ever blocking the UI (a thin progress bar
@@ -107,21 +112,27 @@ shows it working) and tells you when **new commits** land on your upstream.
 Checking out a branch that is behind fast-forwards it automatically.
 
 ### 🔍 Find anything
+
 `Cmd/Ctrl+F` searches **everything** — branch and tag names, commit messages,
 authors, hashes, changed file names — dimming everything that doesn't match.
 With the diff editor open, the same shortcut searches **inside the code**.
 
 ### 📄 A real diff editor
+
 Full-page diffs with the **whole file** as context, **inline or side-by-side**
 (with synchronized scrolling), line numbers and a clickable **minimap**.
 
+<img src="docs/screenshot-editor.png" alt="The diff editor in split view with minimap" width="860" />
+
 ### 🌿 Branches, tags, stashes, remotes
+
 Create, checkout, merge, delete (local **and** remote) and **rename** branches.
 One-click **WIP stash** and pop, with editable stash messages. Tags with
 create/delete, multiple remotes, and **Open in browser** to jump to any commit
 or branch on your git host.
 
 ### ⚙️ Quality of life
+
 Multiple repos as **tabs** with session restore · full **keyboard navigation**
 (arrow keys across commits and files) · **SSH key manager** (generate ed25519 /
 RSA, copy public key) · **light/dark theme** · settings for sync cadence and
@@ -129,15 +140,15 @@ git identity · built-in **update notifications**.
 
 ## Keyboard shortcuts
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd/Ctrl+F` | Search everywhere — or in the open file when the editor is shown |
-| `↑` / `↓` | Move through commits or files |
-| `←` / `→` | Switch focus between the commit list and the file list |
-| `Esc` | Close search → editor → dialogs (in that order) |
-| `Cmd/Ctrl+Enter` | Commit / save the message being edited |
-| Double-click a branch label | Checkout |
-| Right-click | Context menus everywhere (commits, branches, tags, stashes) |
+| Shortcut                    | Action                                                           |
+| --------------------------- | ---------------------------------------------------------------- |
+| `Cmd/Ctrl+F`                | Search everywhere — or in the open file when the editor is shown |
+| `↑` / `↓`                   | Move through commits or files                                    |
+| `←` / `→`                   | Switch focus between the commit list and the file list           |
+| `Esc`                       | Close search → editor → dialogs (in that order)                  |
+| `Cmd/Ctrl+Enter`            | Commit / save the message being edited                           |
+| Double-click a branch label | Checkout                                                         |
+| Right-click                 | Context menus everywhere (commits, branches, tags, stashes)      |
 
 ## Requirements
 
@@ -193,7 +204,7 @@ Nothing else needs to change.
 This is an **independent, non-commercial project**. It is **not affiliated
 with, endorsed by, or sponsored by** any company, product or service. It does
 not aim to compete with any commercial offering, and it **uses no third-party
-trademarks**: any names that appear in this repository (such as GitHub) belong
+trademarks**: any names that appear in this repository (such as Git or GitHub) belong
 to their respective owners and are mentioned solely to describe
 interoperability.
 

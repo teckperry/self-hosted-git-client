@@ -15,6 +15,11 @@ interface PersistedState {
 const FILE = () => join(app.getPath('userData'), 'state.json')
 const MAX_RECENT = 15
 
+// Screenshot/demo mode (used to generate the README pictures): seed the
+// session with the given repo and never read from or write to the user's
+// real state file.
+const DEMO_REPO = process.env.SCREENSHOT_REPO
+
 const emptyState = (): PersistedState => ({ recentRepos: [], openRepos: [], activeRepo: null })
 
 let state: PersistedState = emptyState()
@@ -22,6 +27,11 @@ let loaded = false
 
 async function load(): Promise<void> {
   if (loaded) return
+  if (DEMO_REPO) {
+    state = { recentRepos: [], openRepos: [DEMO_REPO], activeRepo: DEMO_REPO }
+    loaded = true
+    return
+  }
   try {
     const txt = await fs.readFile(FILE(), 'utf8')
     state = { ...emptyState(), ...JSON.parse(txt) }
@@ -32,6 +42,7 @@ async function load(): Promise<void> {
 }
 
 async function save(): Promise<void> {
+  if (DEMO_REPO) return
   try {
     await fs.writeFile(FILE(), JSON.stringify(state, null, 2), 'utf8')
   } catch {
