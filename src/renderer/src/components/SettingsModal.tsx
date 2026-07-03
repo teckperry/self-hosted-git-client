@@ -16,6 +16,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): React.JSX.E
   const setTheme = useStore((s) => s.setTheme)
   const autoFetchMinutes = useStore((s) => s.autoFetchMinutes)
   const setAutoFetchMinutes = useStore((s) => s.setAutoFetchMinutes)
+  const defaultDiffView = useStore((s) => s.defaultDiffView)
+  const setDefaultDiffView = useStore((s) => s.setDefaultDiffView)
   const repo = useStore((s) => s.repo)
   const showToast = useStore((s) => s.showToast)
 
@@ -93,6 +95,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }): React.JSX.E
         <span className="block text-[11px] text-app-muted mt-1">
           How often the app quietly fetches while in the background. It also fetches the moment
           the window comes back into view and when you switch repos.
+        </span>
+      </Field>
+
+      {/* Default diff view */}
+      <Field label="Default diff view">
+        <div className="inline-flex rounded-md border border-app-border overflow-hidden text-[13px]">
+          {(['split', 'inline'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setDefaultDiffView(m)}
+              className={`px-3 h-9 capitalize transition-colors ${
+                defaultDiffView === m
+                  ? 'bg-app-accent text-app-accent-fg'
+                  : 'text-app-muted hover:bg-app-hover hover:text-app-text'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <span className="block text-[11px] text-app-muted mt-1">
+          How the diff editor opens. You can still switch views inside the editor at any time.
         </span>
       </Field>
 
