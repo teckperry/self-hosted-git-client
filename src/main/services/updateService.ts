@@ -1,9 +1,27 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import pkg from '../../../package.json'
 import type { UpdateInfo } from '@shared/types'
 
-// Where published releases live. Change this when rebranding/forking.
-const RELEASE_REPO = 'teckperry/self-hosted-git-client'
+// The GitHub "owner/repo" that publishes the releases. Derived from
+// package.json's `repository` field — the same field electron-builder uses to
+// publish — so a rebrand or fork only has to change that one place, never this
+// file. The import is inlined at build time (no runtime file lookup), and a
+// fallback keeps things working if the field is ever missing/unparseable.
+const FALLBACK_REPO = 'teckperry/self-hosted-git-client'
+
+function parseRepoSlug(repository: unknown): string | null {
+  const url = typeof repository === 'string' ? repository : (repository as { url?: string })?.url
+  if (!url) return null
+  // Accept https://github.com/owner/repo(.git), git@github.com:owner/repo(.git),
+  // the npm "github:owner/repo" shorthand and a bare "owner/repo".
+  const m =
+    url.match(/github\.com[/:]([^/]+\/[^/#]+?)(?:\.git)?(?:[#/].*)?$/i) ||
+    url.match(/^(?:github:)?([^/\s]+\/[^/\s]+?)(?:\.git)?$/)
+  return m ? m[1] : null
+}
+
+const RELEASE_REPO = parseRepoSlug((pkg as { repository?: unknown }).repository) ?? FALLBACK_REPO
 
 interface GhAsset {
   name: string

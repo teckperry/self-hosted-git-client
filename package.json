@@ -5,6 +5,10 @@
   "main": "./out/main/index.js",
   "author": "Teckperry <teckperry.95@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teckperry/self-hosted-git-client.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
