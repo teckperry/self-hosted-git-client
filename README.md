@@ -196,6 +196,9 @@ to compile. UI and main process communicate over typed IPC only.
    [`src/renderer/src/branding.ts`](src/renderer/src/branding.ts)
 2. **Executable name / appId** → `package.json` (`name`) and
    [`electron-builder.yml`](electron-builder.yml) (`productName`, `appId`).
+3. **Release target** (where the built-in updater checks for new versions) →
+   just `package.json`'s `repository` field. It's read automatically, so no
+   code change is needed when you fork or rename the repo.
 
 Nothing else needs to change.
 
