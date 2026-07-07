@@ -3,6 +3,7 @@ import { promises as fs } from 'fs'
 import { join, basename } from 'path'
 import { tmpdir } from 'os'
 import { parseUnifiedDiff } from './diffParser'
+import { assertSafeGitUrl, assertSafeGitArg } from '../security'
 import type {
   RepoInfo,
   Commit,
@@ -30,13 +31,25 @@ const RECORD = '\x1e'
 // with the changes highlighted, not just the changed hunks.
 const FULL_CONTEXT = '-U100000'
 
+// Applied to every git invocation (passed as `-c protocol.ext.allow=never`):
+// disable the `ext::` remote helper so a crafted clone/remote URL can never run
+// an arbitrary command, even if it slips past the URL check at the boundary.
+// simple-git refuses any `protocol.*.allow` override by default (to stop it
+// being *loosened* to `always`); we opt in via `allowUnsafeProtocolOverride`
+// precisely so we can *tighten* it to `never`. The value is a hard-coded
+// constant here and never derived from user input.
+const HARDENED_GIT = {
+  config: ['protocol.ext.allow=never'],
+  unsafe: { allowUnsafeProtocolOverride: true }
+}
+
 /** Caches one SimpleGit instance per repository path. */
 const cache = new Map<string, SimpleGit>()
 
 function git(repoPath: string): SimpleGit {
   let g = cache.get(repoPath)
   if (!g) {
-    g = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 4 })
+    g = simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 4, ...HARDENED_GIT })
     cache.set(repoPath, g)
   }
   return g
@@ -136,13 +149,14 @@ export const gitService = {
   },
 
   async cloneRepo(opts: CloneOptions): Promise<string> {
+    assertSafeGitUrl(opts.url)
     const target = join(opts.directory, deriveRepoName(opts.url))
-    await simpleGit().clone(opts.url, target)
+    await simpleGit({ ...HARDENED_GIT }).clone(opts.url, target)
     return target
   },
 
   async initRepo(repoPath: string): Promise<RepoInfo> {
-    await simpleGit(repoPath).init()
+    await simpleGit(repoPath, { ...HARDENED_GIT }).init()
     return this.openRepo(repoPath)
   },
 
@@ -548,13 +562,15 @@ export const gitService = {
   async fetch(repoPath: string): Promise<void> {
     // Own instance: a slow network fetch must not occupy a slot in the cached
     // instance's process queue, where it would delay reads and user actions.
-    await simpleGit(repoPath, { binary: 'git', maxConcurrentProcesses: 1 }).fetch([
-      '--all',
-      '--prune'
-    ])
+    await simpleGit(repoPath, {
+      binary: 'git',
+      maxConcurrentProcesses: 1,
+      ...HARDENED_GIT
+    }).fetch(['--all', '--prune'])
   },
 
   async checkoutBranch(repoPath: string, name: string, isRemote = false): Promise<void> {
+    assertSafeGitArg(name, 'branch name')
     // For a remote branch create/switch to a local tracking branch.
     if (isRemote) {
       const local = name.split('/').slice(1).join('/')
@@ -569,16 +585,20 @@ export const gitService = {
   },
 
   async createBranch(repoPath: string, name: string, checkout: boolean): Promise<void> {
+    assertSafeGitArg(name, 'branch name')
     if (checkout) await git(repoPath).checkoutLocalBranch(name)
     else await git(repoPath).branch([name])
   },
 
   async deleteBranch(repoPath: string, name: string, force: boolean): Promise<void> {
+    assertSafeGitArg(name, 'branch name')
     await git(repoPath).deleteLocalBranch(name, force)
   },
 
   /** Rename a local branch. Purely local — the remote is left untouched. */
   async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
+    assertSafeGitArg(oldName, 'branch name')
+    assertSafeGitArg(newName, 'branch name')
     await git(repoPath).raw(['branch', '-m', oldName, newName])
   },
 
@@ -588,23 +608,32 @@ export const gitService = {
     if (slash < 0) throw new Error(`Invalid remote branch ref: ${remoteRef}`)
     const remote = remoteRef.slice(0, slash)
     const branch = remoteRef.slice(slash + 1)
+    assertSafeGitArg(remote, 'remote name')
+    assertSafeGitArg(branch, 'branch name')
     await git(repoPath).raw(['push', remote, '--delete', branch])
   },
 
   async mergeBranch(repoPath: string, name: string): Promise<string> {
+    assertSafeGitArg(name, 'branch name')
     const res = await git(repoPath).merge([name])
     return JSON.stringify(res)
   },
 
   async checkoutCommit(repoPath: string, hash: string): Promise<void> {
+    assertSafeGitArg(hash, 'commit')
     await git(repoPath).checkout(hash)
   },
 
   async resetTo(repoPath: string, hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
+    if (mode !== 'soft' && mode !== 'mixed' && mode !== 'hard') {
+      throw new Error(`Invalid reset mode: ${mode}`)
+    }
+    assertSafeGitArg(hash, 'commit')
     await git(repoPath).raw(['reset', `--${mode}`, hash])
   },
 
   async revertCommit(repoPath: string, hash: string): Promise<void> {
+    assertSafeGitArg(hash, 'commit')
     await git(repoPath).raw(['revert', '--no-edit', hash])
   },
 
@@ -656,6 +685,7 @@ export const gitService = {
   },
 
   async cherryPick(repoPath: string, hash: string): Promise<void> {
+    assertSafeGitArg(hash, 'commit')
     await git(repoPath).raw(['cherry-pick', hash])
   },
 
@@ -694,6 +724,7 @@ export const gitService = {
 
   /** The commits in `onto`..HEAD, oldest first — the range an interactive rebase edits. */
   async getRebaseCommits(repoPath: string, onto: string): Promise<RebaseCommit[]> {
+    assertSafeGitArg(onto, 'base commit')
     const fmt = ['%H', '%h', '%s'].join(FIELD)
     let out = ''
     try {
@@ -720,6 +751,16 @@ export const gitService = {
    * conflict, the rebase stays in progress and the merge editor takes over.
    */
   async rebaseInteractive(repoPath: string, onto: string, todo: RebaseTodoItem[]): Promise<void> {
+    assertSafeGitArg(onto, 'base commit')
+    // Validate every todo entry: the action must be one we generate, and the
+    // hash must be a clean ref. Both feed the sequencer file line-by-line, so an
+    // unexpected action or a hash carrying a newline could inject a rebase
+    // command (e.g. `exec <arbitrary shell>`).
+    const REBASE_ACTIONS: ReadonlySet<string> = new Set(['pick', 'squash', 'fixup', 'drop'])
+    for (const t of todo) {
+      if (!REBASE_ACTIONS.has(t.action)) throw new Error(`Invalid rebase action: ${t.action}`)
+      assertSafeGitArg(t.hash, 'commit')
+    }
     const lines = todo.filter((t) => t.action !== 'drop').map((t) => `${t.action} ${t.hash}`)
     if (lines.length === 0) throw new Error('Nothing to rebase — every commit was dropped.')
     if (todo.filter((t) => t.action !== 'drop')[0].action !== 'pick') {
@@ -833,12 +874,17 @@ export const gitService = {
   },
 
   async createTag(repoPath: string, name: string, hash?: string): Promise<void> {
+    assertSafeGitArg(name, 'tag name')
     const args = ['tag', name]
-    if (hash) args.push(hash)
+    if (hash) {
+      assertSafeGitArg(hash, 'commit')
+      args.push(hash)
+    }
     await git(repoPath).raw(args)
   },
 
   async deleteTag(repoPath: string, name: string): Promise<void> {
+    assertSafeGitArg(name, 'tag name')
     await git(repoPath).raw(['tag', '-d', name])
   },
 
@@ -883,10 +929,13 @@ export const gitService = {
   },
 
   async addRemote(repoPath: string, name: string, url: string): Promise<void> {
+    assertSafeGitArg(name, 'remote name')
+    assertSafeGitUrl(url)
     await git(repoPath).addRemote(name, url)
   },
 
   async removeRemote(repoPath: string, name: string): Promise<void> {
+    assertSafeGitArg(name, 'remote name')
     await git(repoPath).removeRemote(name)
   },
 

@@ -14,6 +14,7 @@ import { gitService } from './services/gitService'
 import { sshService } from './services/sshService'
 import { store } from './services/store'
 import { updateService } from './services/updateService'
+import { isSafeExternalUrl } from './security'
 
 /** Wrap a handler so every IPC call returns a typed { ok, data | error } envelope. */
 function handle<T>(
@@ -50,6 +51,7 @@ export function registerIpcHandlers(): void {
     return res.canceled ? null : res.filePaths[0]
   })
   handle(Channels.openExternal, async (url: string) => {
+    if (!isSafeExternalUrl(url)) throw new Error('Refusing to open a non-web URL.')
     await shell.openExternal(url)
   })
   handle(Channels.getRecentRepos, () => store.getRecentRepos())

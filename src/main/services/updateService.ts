@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import type { UpdateInfo } from '@shared/types'
+import { isSafeUpdateUrl } from '../security'
 
 // Where published releases live. Change this when rebranding/forking.
 const RELEASE_REPO = 'teckperry/self-hosted-git-client'
@@ -54,6 +55,10 @@ export const updateService = {
 
   /** Download an asset to the user's Downloads folder and reveal it. */
   async download(url: string): Promise<string> {
+    // The URL originates from the GitHub releases API, but it arrives here over
+    // IPC — pin it to GitHub's asset hosts so it can't be repurposed to fetch
+    // an arbitrary file.
+    if (!isSafeUpdateUrl(url)) throw new Error('Refusing to download from an untrusted host.')
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     if (!win) throw new Error('No window available for download.')
     const savePath = await new Promise<string>((resolve, reject) => {
