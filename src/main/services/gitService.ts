@@ -440,6 +440,32 @@ export const gitService = {
 
   async getCommitDiff(repoPath: string, hash: string): Promise<DiffFile[]> {
     const g = git(repoPath)
+
+    // A stash is a commit, but its own tree only holds the tracked changes
+    // relative to the base — so a plain parent-diff misses the staged-only and
+    // untracked files, and shows *nothing* for an untracked-only stash. Detect
+    // it and use `git stash show --include-untracked`, which reconstructs the
+    // full stashed content (tracked + untracked) from the stash's parents.
+    let isStash = false
+    try {
+      const raw = await g.raw(['stash', 'list', '--format=%H'])
+      isStash = raw.split('\n').map((s) => s.trim()).includes(hash)
+    } catch {
+      isStash = false
+    }
+    if (isStash) {
+      const patch = await g.raw([
+        'stash',
+        'show',
+        '--include-untracked',
+        '-p',
+        '--no-color',
+        FULL_CONTEXT,
+        hash
+      ])
+      return parseUnifiedDiff(patch)
+    }
+
     let parents: string[] = []
     try {
       const rev = (await g.raw(['rev-list', '--parents', '-n', '1', hash])).trim()
