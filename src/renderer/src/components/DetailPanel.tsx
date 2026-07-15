@@ -40,6 +40,7 @@ export function DetailPanel(): React.JSX.Element {
   // check that branch out first (then it becomes editable as its own HEAD).
   const otherBranchTip =
     commit?.refs.find((r) => r.type === 'head' && r.name !== status?.current)?.name ?? null
+  const isStash = !!commit && commit.refs.some((r) => r.type === 'stash')
   const fullMessage = commit ? (commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject) : ''
 
   const [draft, setDraft] = useState(fullMessage)
@@ -155,6 +156,10 @@ export function DetailPanel(): React.JSX.Element {
                 Save
               </button>
             </div>
+          ) : isStash ? (
+            <p className="text-[11px] text-app-muted mt-1.5">
+              Stashed changes — apply or pop it from the graph.
+            </p>
           ) : isHead ? (
             <div className="flex justify-end mt-1.5">
               <button
